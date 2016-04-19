@@ -1,0 +1,77 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+servers = [
+  { 
+    :hostname => "master",    
+    :box => 'ubuntu/trusty64',
+    :ip => '192.168.33.20', 
+    :ram => 2048,
+    :cpus => 2
+  },
+  {
+      :hostname => "slave1",
+      :box => 'ubuntu/trusty64',
+      :ip => '192.168.33.21',
+      :ram => 2048,
+      :cpus => 2
+  },
+  {
+      :hostname => "slave2",
+      :box => 'ubuntu/trusty64',
+      :ip => '192.168.33.22',
+      :ram => 2048,
+      :cpus => 2
+  }
+]
+
+Vagrant.configure(2) do |config|
+
+    config.vm.provision "shell" do |s|
+        s.path = "scripts/equip_base.sh"
+    end
+
+    # Install Oracle JDK 8
+    config.vm.provision "shell" do |s|
+        s.path = "scripts/equip_java8_wget.sh"
+    end
+
+    # Install Maven
+    config.vm.provision "shell" do |s|
+        s.path = "scripts/equip_maven3.sh"
+    end
+
+    # Install Docker
+    config.vm.provision "shell" do |s|
+        s.path = "scripts/equip_docker.sh"
+    end
+
+    # Add hadoop user
+    config.vm.provision "shell" do |s|
+        s.path = "scripts/equip_sudo_users.sh"
+        s.args = "hadoop hadoop"
+    end
+
+    # Install hadoop
+    config.vm.provision "shell" do |s|
+        s.path = "scripts/setup_hadoop.sh"
+    end
+
+    # configure shared folder
+    config.vm.synced_folder './', '/vagrant', disabled: false
+    #, owner: "hadoop", group: "hadoop"
+
+    servers.each do |machine|
+        config.vm.define machine[:hostname] do |node|
+            node.vm.box = machine[:box]
+            node.vm.host_name = machine[:hostname]
+            node.vm.network "private_network", ip: machine[:ip]
+            node.vm.provider "virtualbox" do |vb|
+                vb.name = machine[:hostname]
+                vb.customize ["modifyvm", :id, "--memory", machine[:ram]]
+                vb.customize ["modifyvm", :id, "--cpus", machine[:cpus]]
+                vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+            end
+        end
+    end
+end

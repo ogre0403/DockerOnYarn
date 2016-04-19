@@ -66,7 +66,7 @@ public class MyApplicationMaster {
         while (allocatedContainers < numOfContainers) {
             AllocateResponse response = rmClient.allocate(0);
             for (Container container : response.getAllocatedContainers()) {
-                ++allocatedContainers;x
+                ++allocatedContainers;
 
                 //getip
                 SimpleMysql MYSQL = new SimpleMysql(MysqlIp,MysqlUser,MysqlPwd,MysqlDb);
