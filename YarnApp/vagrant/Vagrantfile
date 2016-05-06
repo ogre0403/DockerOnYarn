@@ -58,8 +58,7 @@ Vagrant.configure(2) do |config|
     end
 
     # configure shared folder
-    config.vm.synced_folder './', '/vagrant', disabled: false
-    #, owner: "hadoop", group: "hadoop"
+    config.vm.synced_folder 'C:/Users/1403035/go_proj/src/github.com/gliderlabs', '/vagrant', disabled: false, owner: "hadoop", group: "hadoop"
 
     servers.each do |machine|
         config.vm.define machine[:hostname] do |node|
@@ -70,7 +69,11 @@ Vagrant.configure(2) do |config|
                 vb.name = machine[:hostname]
                 vb.customize ["modifyvm", :id, "--memory", machine[:ram]]
                 vb.customize ["modifyvm", :id, "--cpus", machine[:cpus]]
+                # Enable NAT DNS resolve
                 vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+                # For bridge docker container
+                vb.customize ['modifyvm', :id, '--nictype2', 'Am79C973']
+                vb.customize ['modifyvm', :id, '--nicpromisc2', 'allow-all']
             end
         end
     end

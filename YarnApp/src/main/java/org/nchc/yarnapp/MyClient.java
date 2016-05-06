@@ -1,27 +1,17 @@
 package org.nchc.yarnapp;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
 import org.apache.hadoop.yarn.api.records.*;
-import org.apache.hadoop.yarn.api.records.URL;
-import org.apache.hadoop.yarn.applications.distributedshell.DSConstants;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.yarn.util.ConverterUtils;
-import org.apache.hadoop.yarn.util.Records;
 
 import java.io.IOException;
 import java.net.*;
@@ -201,9 +191,9 @@ public class MyClient {
         // put location of shell script into env
         // using the env info, the application master will create the correct local resource for the
         // eventual containers that will be launched to execute the shell scripts
-        env.put(DSConstants.DISTRIBUTEDSHELLSCRIPTLOCATION, hdfsShellScriptLocation);
-        env.put(DSConstants.DISTRIBUTEDSHELLSCRIPTTIMESTAMP, Long.toString(hdfsShellScriptTimestamp));
-        env.put(DSConstants.DISTRIBUTEDSHELLSCRIPTLEN, Long.toString(hdfsShellScriptLen));
+        env.put("DISTRIBUTEDSHELLSCRIPTLOCATION", hdfsShellScriptLocation);
+        env.put("DISTRIBUTEDSHELLSCRIPTTIMESTAMP", Long.toString(hdfsShellScriptTimestamp));
+        env.put("DISTRIBUTEDSHELLSCRIPTLEN", Long.toString(hdfsShellScriptLen));
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
