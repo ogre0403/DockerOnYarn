@@ -28,9 +28,13 @@ public class MyApplicationMaster {
 
         LOG.info("Running ApplicationMaster");
 
-        final String dockerCommand = "docker run --privileged=true -e HD_IP=";//+args[0]+" -i -t -d gnssh/pipwork:v2";//"docker run hello-world";
-        String dockerImgName = " -i -t -d gnssh/pipwork:v2";
-        final int numOfContainers = 3;//Integer.valueOf(args[1]);
+//        final String dockerCommand = "docker run --privileged=true -e HD_IP=";//+args[0]+" -i -t -d gnssh/pipwork:v2";//"docker run hello-world";
+//        String dockerImgName = " -i -t -d gnssh/pipwork:v2";
+
+        String cmd = "docker run ubuntu ping -c 60 8.8.8.8";
+
+        LOG.info("Initializing " + args[0] + " containers");
+        final int numOfContainers = Integer.valueOf(args[0]);
         YarnConfiguration conf = new YarnConfiguration();
         // Point #2
         LOG.info("Initializing AMRMCLient");
@@ -51,7 +55,7 @@ public class MyApplicationMaster {
 
         LOG.info("Setting Resource capability for Containers");
         Resource capability = Records.newRecord(Resource.class);
-        capability.setMemory(128);
+        capability.setMemory(1024);
         capability.setVirtualCores(1);
         for (int i = 0; i < numOfContainers; ++i) {
             ContainerRequest containerRequested = new ContainerRequest(capability, null, null, priority, true);
@@ -63,34 +67,28 @@ public class MyApplicationMaster {
         LOG.info("Requesting container allocation from ResourceManager");
 
         while (allocatedContainers < numOfContainers) {
-            AllocateResponse response = rmClient.allocate(0);
+            AllocateResponse response = rmClient.allocate(50);
             for (Container container : response.getAllocatedContainers()) {
                 ++allocatedContainers;
 
-                //getip
-                SimpleMysql MYSQL = new SimpleMysql(MysqlIp,MysqlUser,MysqlPwd,MysqlDb);
 
-                String ip = MYSQL.getIP();
-                if (ip != null && !ip.isEmpty()) {
-                    System.out.println("getIP: " + ip);
-                    MYSQL.setIPStatus(ip, "1");
-                }
-                else{
-                    //System.out.println("ip=null");
-                    break;
-                }
-
-                String pythonCmd = "python /tmp/startDocker.py -p "+ip+" -n "+container.getNodeId()+" -y "+container.getId();
-                String shellCommand = dockerCommand+ ip+ dockerImgName;
                 // Launch container by creating ContainerLaunchContext
                 ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
 
-                ctx.setCommands(Collections.singletonList(pythonCmd + " 1>/tmp/stdout" + " 2>/tmp/stderr"));
-                LOG.info("command: "+shellCommand + " 1>"
-                        + ApplicationConstants.LOG_DIR_EXPANSION_VAR  + "/stdout" + " 2>"
-                        + ApplicationConstants.LOG_DIR_EXPANSION_VAR  + "/stderr");
-                LOG.info("Starting container on node : " + container.getNodeHttpAddress());
+
+                ctx.setCommands(Collections.singletonList(cmd + " 1>"
+                        + ApplicationConstants.LOG_DIR_EXPANSION_VAR
+                        + "/stdout" + " 2>"
+                        + ApplicationConstants.LOG_DIR_EXPANSION_VAR
+                        + "/stderr"));
+                System.out.println("Starting container on node : "
+                        + container.getNodeHttpAddress());
+                System.out.println("command: " + cmd + " 1>"
+                        + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout" + " 2>"
+                        + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+
                 nmClient.startContainer(container, ctx);
+
             }
             Thread.sleep(100);
         }
@@ -98,7 +96,10 @@ public class MyApplicationMaster {
         // Point #6
         int completedContainers = 0;
         while (completedContainers < numOfContainers) {
+
+            LOG.info("in while");
             AllocateResponse response = rmClient.allocate(completedContainers / numOfContainers);
+
             for (ContainerStatus status : response.getCompletedContainersStatuses()) {
                 ++completedContainers;
                 LOG.info("Container completed : " + status.getContainerId());
