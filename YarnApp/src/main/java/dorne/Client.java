@@ -83,7 +83,7 @@ public class Client {
         yarnClient.init(conf);
         opts = new Options();
         opts.addOption(DorneConst.DOREN_OPTS_APPNAME, true,
-                "Application Name. Default value - DistributedShell");
+                "Application Name. Default value - dorne");
         opts.addOption(DorneConst.DOREN_OPTS_YARN_AM_MEM, true,
                 "Amount of memory in MB to be requested to run the application master");
         opts.addOption(DorneConst.DOREN_OPTS_YARN_AM_CORE, true,

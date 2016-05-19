@@ -23,4 +23,5 @@ public class DorneConst {
     static public final String DOREN_OPTS_YARN_AM_MEM = "yarn_master_memory";
     static public final String DOREN_OPTS_YARN_AM_CORE = "yarn_master_vcores";
 
+    static public final String DOREN_DOCKER_RUN_CMD = "docker run ";
 }
