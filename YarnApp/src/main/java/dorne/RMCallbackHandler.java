@@ -77,19 +77,19 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
         }
     }
 
+    //TODO:
+    // About extra containers being allocated.
+    // http://mapreduce-user.hadoop.apache.narkive.com/UKO7MiTd/about-extra-containers-being-allocated-in-distributed-shell-example
+    // YARN-1902 , SPARK-2687, SLIDER-829, SLIDER-828
+
     @Override
     public void onContainersAllocated(List<Container> allocatedContainers) {
 
         LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
 
         for (Container allocatedContainer : allocatedContainers) {
-
-            // TODO: total allocated container may be larger than request
-            // avoid invoke too more container than required
             int allocated_num = dockerAppMaster.numAllocatedContainers.getAndIncrement();
             if(allocated_num >= dockerAppMaster.numberContainer) {
-                // TODO: do a very dummy task
-
                 break;
             }
 

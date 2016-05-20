@@ -17,7 +17,6 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
-import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
@@ -26,6 +25,7 @@ import org.apache.log4j.LogManager;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -43,8 +43,8 @@ public class DockerAppMaster {
     protected int numberContainer ;
     protected int containerMemory ;
     protected int containerCore   ;
-    protected String containerImage ="";
-    protected String containerCmd = "";
+    protected String containerCmdArgs = "";
+    protected String containerType = "";
 
     // TODO
     // For status update for clients - yet to be implemented
@@ -77,6 +77,7 @@ public class DockerAppMaster {
     // Launch threads
     protected List<Thread> launchThreads = new ArrayList<Thread>();
 
+    protected  Map<String, String> envs;
 
     public DockerAppMaster() {
         // Set up the configuration
@@ -110,56 +111,31 @@ public class DockerAppMaster {
 
     public boolean init(String[] args) throws ParseException {
 
-        for(String arg:args){
-            LOG.info(arg);
-        }
-
-        Options opts = new Options();
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, true,
-                "No. of containers on which the shell command needs to be executed");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_IMAGE, true,
-                "Images to be used by docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CMD, true,
-                "Command to be executed by docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, true,
-                "Amount of memory in MB to be requested to run docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, true,
-                "Amount of core to be requested to run docker container");
+        Options opts = Util.AMOptions();
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
         // read container number or use default value 1
-        if(cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM)){
             numberContainer = Integer.parseInt(
                     cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, "1"));
-        }
 
         // read container mem configuration or use default vale 1024 MB
-        if(cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM)){
             containerMemory = Integer.parseInt(
                     cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, "1024"));
-        }
 
         // read container cpu core configuration or use default vale 1
-        if(cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE)){
             containerCore = Integer.parseInt(
                     cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, "1"));
-        }
 
-        // read container image name, must be specified
-        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_IMAGE)){
+        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE)){
             throw new IllegalArgumentException(
-                    "Container image not specified !!");
+                    "Dockerized service type not specified !!");
         }
-        containerImage = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_IMAGE);
+        containerType = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE);
 
-        // read container command, must be specified
-        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CMD)){
-            throw new IllegalArgumentException(
-                    "Container command not specified !!");
-        }
-        containerCmd = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CMD);
+        containerCmdArgs = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS);
 
+        envs = System.getenv();
 
         return true;
     }
@@ -182,8 +158,7 @@ public class DockerAppMaster {
         // TODO
         // Setup local RPC Server to accept status requests directly from clients
 
-        // Register self with ResourceManager
-        // This will start heartbeating to the RM
+        // Register self with ResourceManager. This will start heartbeating to the RM
         appMasterHostname = NetUtils.getHostname();
         RegisterApplicationMasterResponse response = rmClientAsync
                 .registerApplicationMaster(appMasterHostname, -1, "");
@@ -205,13 +180,9 @@ public class DockerAppMaster {
         }
 
         numRequestedContainers.set(numTotalContainersToRequest);
-
-
     }
 
     private void saintyCheckMemVcoreLimit(RegisterApplicationMasterResponse response){
-        // Dump out information about cluster capability as seen by the
-        // resource manager
         int maxMem = response.getMaximumResourceCapability().getMemory();
         LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 

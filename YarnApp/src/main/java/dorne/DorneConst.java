@@ -7,21 +7,34 @@ public class DorneConst {
 
     // application master class name
     static public final String DORNE_APPLICATION_MASTER_CLASS = "dorne.DockerAppMaster";
-
     static public final String DORNE_APPLICATION_TYPE = "DORNE";
 
     // client opts name
     static public final String DOREN_OPTS_APPNAME = "appname";
     static public final String DOREN_OPTS_JAR = "jar";
 
-    static public final String DOREN_OPTS_DOCKER_CONTAINER_NUM = "num_docker_containers";
+    // AM memory and core
+    static public final String DOREN_OPTS_YARN_AM_MEM = "am_memory";
+    static public final String DOREN_OPTS_YARN_AM_CORE = "am_vcores";
+
+    // docker container num/mem/core
+    static public final String DOREN_OPTS_DOCKER_CONTAINER_NUM = "docker_container_num";
     static public final String DOREN_OPTS_DOCKER_CONTAINER_MEM = "docker_container_memory";
     static public final String DOREN_OPTS_DOCKER_CONTAINER_CORE = "docker_container_vcores";
-    static public final String DOREN_OPTS_DOCKER_IMAGE = "docker_image";
-    static public final String DOREN_OPTS_DOCKER_CONTAINER_CMD = "docker_container_cmd";
 
-    static public final String DOREN_OPTS_YARN_AM_MEM = "yarn_master_memory";
-    static public final String DOREN_OPTS_YARN_AM_CORE = "yarn_master_vcores";
+    // dockerized service name & arguments
+    static public final String DOREN_OPTS_DOCKER_SERVICE = "docker_service";
+    static public final String DOREN_OPTS_DOCKER_SERVICE_ARGS = "docker_service_args";
 
-    static public final String DOREN_DOCKER_RUN_CMD = "docker run ";
+    // odckerized service arguments seperated by #
+    static public final String DOREN_ARGS_SEPERATOR = "#";
+
+    //
+    static public final String DOREN_DEMO_FILE = "Demo.sh";
+    static public final String DOREN_DEMO_SCRIPTLOCATION = "DORENDEMOSCRIPTLOCATION";
+    static public final String DOREN_DEMO_SCRIPTTIMESTAMP = "DORENDEMOSCRIPTTIMESTAMP";
+    static public final String DOREN_DEMO_SCRIPTLEN = "DORENDEMOSCRIPTLEN";
+
+    // script name on each nodemanager
+    static public final String DOREN_LOCALRESOURCE_SCRIPT = "ExecScript.sh";
 }

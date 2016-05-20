@@ -21,6 +21,8 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.*;
 
 /**
@@ -55,12 +57,11 @@ public class Client {
     private int containerVirtualCores = 1;
     // No. of containers in which the shell script needs to be executed
     private int numContainers = 1;
-    // Image used by docker container
-    private String dockerImage = "";
-    // command user by docker container
-    private String containerCmd = "";
 
+    // service type used by docker container
+    private String containerType="";
 
+    private String containerCmdArgs = "";
 
     // Command line options
     private Options opts;
@@ -81,25 +82,7 @@ public class Client {
         this.appMasterMainClass = appMasterMainClass;
         yarnClient = YarnClient.createYarnClient();
         yarnClient.init(conf);
-        opts = new Options();
-        opts.addOption(DorneConst.DOREN_OPTS_APPNAME, true,
-                "Application Name. Default value - dorne");
-        opts.addOption(DorneConst.DOREN_OPTS_YARN_AM_MEM, true,
-                "Amount of memory in MB to be requested to run the application master");
-        opts.addOption(DorneConst.DOREN_OPTS_YARN_AM_CORE, true,
-                "Amount of virtual cores to be requested to run the application master");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_IMAGE, true,
-                "Images to be used by docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CMD, true,
-                "Command to be executed by docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, true,
-                "Amount of memory in MB to be requested to run docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, true,
-                "Amount of core to be requested to run docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, true,
-                "No. of containers on which the shell command needs to be executed");
-        opts.addOption(DorneConst.DOREN_OPTS_JAR, true,
-                "Jar file containing the application master");
+        opts = Util.ClientOptions();
     }
 
 
@@ -164,12 +147,12 @@ public class Client {
         appMasterJar = cliParser.getOptionValue("jar");
 
 
-        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_IMAGE)){
-            throw new IllegalArgumentException("No docker image specified");
+        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE)){
+            throw new IllegalArgumentException("No docker type specified");
         }
-        dockerImage = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_IMAGE);
+        containerType = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE);
 
-        containerCmd = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CMD,"date");
+        containerCmdArgs = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS);
 
         containerMemory = Integer.parseInt(
                 cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, "1024"));
@@ -209,7 +192,10 @@ public class Client {
         amContainer.setLocalResources(buildAMLocalResource(appId));
 
         // set environment veriable for AM
-        amContainer.setEnvironment(buildAMEnv());
+        Map<String, String> env = new HashMap<String, String>();
+        buildAMEnv(env);
+        buildAMEnvForShell(env, appId);
+        amContainer.setEnvironment(env);
 
         // build command for AM
         List<String> commands = new ArrayList<String>();
@@ -287,24 +273,57 @@ public class Client {
                 localResources, null);
 
 
-        /*
-        if (!shellCommand.isEmpty()) {
-            addToLocalResources(fs, null, shellCommandPath, appId.toString(),
-                    localResources, shellCommand);
-        }
-
-        if (shellArgs.length > 0) {
-            addToLocalResources(fs, null, shellArgsPath, appId.toString(),
-                    localResources, StringUtils.join(shellArgs, " "));
-        }
-        */
-
         return localResources;
     }
 
-    private Map<String, String> buildAMEnv(){
+    private void buildAMEnvForShell(Map<String, String> env, ApplicationId appId) throws IOException {
+
+        FileSystem fs = FileSystem.get(conf);
+        // The shell script has to be made available on the final container(s) where it will be executed.
+        // To do this, we need to first copy into the hdfs that is visible to the yarn framework.
+        String hdfsShellScriptLocation = "";
+        long hdfsShellScriptLen = 0;
+        long hdfsShellScriptTimestamp = 0;
+        if (!containerType.isEmpty()) {
+            InputStream is;
+
+            //TODO: need to do for each dockerized service type
+            switch (containerType) {
+                case "ping":
+                    is = getClass().getResourceAsStream("/demo/ping.sh");
+                    break;
+                case "nginx":
+                    is = getClass().getResourceAsStream("/demo/nginx.sh");
+                    break;
+                default:
+                    is = getClass().getResourceAsStream("/demo/ping.sh");
+            }
+            String shellPathSuffix = appName + "/" + appId.toString() + "/" + DorneConst.DOREN_DEMO_FILE;
+            Path shellDst = new Path(fs.getHomeDirectory(), shellPathSuffix);
+            // copy into HDFS
+            OutputStream os = fs.create(shellDst);
+            org.apache.hadoop.io.IOUtils.copyBytes(is,    os,    conf);
+            is.close();
+            os.close();
+
+            hdfsShellScriptLocation = shellDst.toUri().toString();
+            FileStatus shellFileStatus = fs.getFileStatus(shellDst);
+            hdfsShellScriptLen = shellFileStatus.getLen();
+            hdfsShellScriptTimestamp = shellFileStatus.getModificationTime();
+
+
+            // put location of shell script into env
+            // using the env info, the application master will create the correct local resource for the
+            // eventual containers that will be launched to execute the shell scripts
+            env.put(DorneConst.DOREN_DEMO_SCRIPTLOCATION, hdfsShellScriptLocation);
+            env.put(DorneConst.DOREN_DEMO_SCRIPTTIMESTAMP, Long.toString(hdfsShellScriptTimestamp));
+            env.put(DorneConst.DOREN_DEMO_SCRIPTLEN, Long.toString(hdfsShellScriptLen));
+        }
+    }
+
+
+    private void buildAMEnv(Map<String, String> env) throws IOException {
         LOG.info("Set the environment for the application master");
-        Map<String, String> env = new HashMap<String, String>();
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
@@ -322,8 +341,6 @@ public class Client {
         }
 
         env.put("CLASSPATH", classPathEnv.toString());
-
-        return env;
     }
 
     private String buildAMCommand(){
@@ -342,9 +359,8 @@ public class Client {
         vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM + " " + String.valueOf(containerMemory));
         vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE+ " " + String.valueOf(containerVirtualCores));
         vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM + " " + String.valueOf(numContainers));
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CMD + " " + String.valueOf(containerCmd));
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_IMAGE + " " + String.valueOf(dockerImage));
-
+        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_SERVICE + " " + String.valueOf(containerType));
+        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS + " " + String.valueOf(containerCmdArgs));
         vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
         vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
 

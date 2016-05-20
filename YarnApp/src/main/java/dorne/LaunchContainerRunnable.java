@@ -2,11 +2,14 @@ package dorne;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.*;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 
 /**
@@ -23,32 +26,65 @@ public class LaunchContainerRunnable implements Runnable {
 
     DockerAppMaster dockerAppMaster;
 
+    Map<String, String> envs;
+
     public LaunchContainerRunnable(
             Container lcontainer,  DockerAppMaster dockerAppMaster) {
         this.container = lcontainer;
         this.containerListener = dockerAppMaster.containerListener;
         this.dockerAppMaster = dockerAppMaster;
+        this.envs = dockerAppMaster.envs;
     }
 
     @Override
     public void run() {
-        LOG.info("Setting up container launch container for containerid="
-                + container.getId());
-        ContainerLaunchContext ctx = Records
-                .newRecord(ContainerLaunchContext.class);
+        LOG.info("Setting up container launch container for containerid=" + container.getId());
+
+        ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
+        ctx.setLocalResources(buildContainerLocalResource());
+        List<String> commands = new ArrayList<String>();
+        commands.add(buildContainerCmd());
+        ctx.setCommands(commands);
+        containerListener.addContainer(container.getId(), container);
+        dockerAppMaster.getNMClientAsync().startContainerAsync(container, ctx);
+    }
+
+    private  Map<String, LocalResource> buildContainerLocalResource(){
+        // Set the local resources
+        Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+        Path renamedScriptPath = new Path(envs.get(DorneConst.DOREN_DEMO_SCRIPTLOCATION));
+        LocalResource shellRsrc = Records.newRecord(LocalResource.class);
+        shellRsrc.setType(LocalResourceType.FILE);
+        shellRsrc.setVisibility(LocalResourceVisibility.APPLICATION);
+        try {
+            shellRsrc.setResource(ConverterUtils.getYarnUrlFromURI(new URI(
+                    renamedScriptPath.toString())));
+        } catch (URISyntaxException e) {
+            LOG.error("Error when trying to use shell script path specified"
+                    + " in env, path=" + renamedScriptPath, e);
+            dockerAppMaster.numCompletedContainers.incrementAndGet();
+            dockerAppMaster.numFailedContainers.incrementAndGet();
+            return null;
+        }
+        shellRsrc.setTimestamp(Long.valueOf(envs.get(DorneConst.DOREN_DEMO_SCRIPTTIMESTAMP)));
+        shellRsrc.setSize(Long.valueOf(envs.get(DorneConst.DOREN_DEMO_SCRIPTLEN)));
+        localResources.put(DorneConst.DOREN_LOCALRESOURCE_SCRIPT, shellRsrc);
+        return localResources;
+    }
+
+    private  String buildContainerCmd(){
+        String[] cmdArgs = dockerAppMaster.containerCmdArgs
+                .split(DorneConst.DOREN_ARGS_SEPERATOR);
 
         // Set the necessary command to execute on the allocated container
-        Vector<CharSequence> vargs = new Vector<CharSequence>();
+        Vector<CharSequence> vargs = new Vector<>();
+        vargs.add("bash");
+        // different container type results in different ExecScript.sh
+        vargs.add(DorneConst.DOREN_LOCALRESOURCE_SCRIPT);
 
-        // set docker run cmd
-        vargs.add(DorneConst.DOREN_DOCKER_RUN_CMD);
-        // Set executable command
-        vargs.add(dockerAppMaster.containerImage);
-        // Set args for the shell command if any
-        vargs.add(dockerAppMaster.containerCmd);
-//        vargs.add("ping -c 20 8.8.8.8");
-
-        //TODO: support docker cmd with args
+        for(String arg: cmdArgs){
+            vargs.add(arg);
+        }
 
         // Add log redirect params
         vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
@@ -59,13 +95,6 @@ public class LaunchContainerRunnable implements Runnable {
         for (CharSequence str : vargs) {
             command.append(str).append(" ");
         }
-
-        List<String> commands = new ArrayList<String>();
-        commands.add(command.toString());
-        ctx.setCommands(commands);
-
-
-        containerListener.addContainer(container.getId(), container);
-        dockerAppMaster.getNMClientAsync().startContainerAsync(container, ctx);
+        return command.toString();
     }
 }
