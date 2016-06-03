@@ -210,7 +210,9 @@ public class Client {
         yarnClient.submitApplication(appContext);
 
         // monitor until app is finish or killed or failed
-        return monitorApplication(appId);
+//        return monitorApplication(appId);
+        getAMInfo(appId);
+        return true;
     }
 
     private void saintyCheckMemVcoreLimit(GetNewApplicationResponse appResponse){
@@ -351,6 +353,7 @@ public class Client {
         // Set java executable command
         LOG.info("Setting up app master command");
         vargs.add(ApplicationConstants.Environment.JAVA_HOME.$$() + "/bin/java");
+//        vargs.add(" -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005 ");
         // Set Xmx based on am memory size
         vargs.add("-Xmx" + amMemory + "m");
         // Set class name
@@ -401,6 +404,22 @@ public class Client {
         localResources.put(fileDstPath, scRsrc);
     }
 
+    private void getAMInfo(ApplicationId appId) throws IOException, YarnException {
+        while (true) {
+            ApplicationReport report = yarnClient.getApplicationReport(appId);
+            if (!report.getHost().equals("N/A")){
+                LOG.info("AM: " + report.getHost());
+                LOG.info("AM rpc port: " + report.getRpcPort());
+                break;
+            }
+            try {
+                LOG.info("wait for connect to RM...");
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                LOG.debug("Thread sleep in monitoring loop interrupted");
+            }
+        }
+    }
 
     private boolean monitorApplication(ApplicationId appId)
             throws YarnException, IOException {

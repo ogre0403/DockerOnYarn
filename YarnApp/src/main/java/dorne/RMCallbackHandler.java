@@ -77,21 +77,13 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
         }
     }
 
-    //TODO:
-    // About extra containers being allocated.
-    // http://mapreduce-user.hadoop.apache.narkive.com/UKO7MiTd/about-extra-containers-being-allocated-in-distributed-shell-example
-    // YARN-1902 , SPARK-2687, SLIDER-829, SLIDER-828
-
     @Override
     public void onContainersAllocated(List<Container> allocatedContainers) {
 
         LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
 
         for (Container allocatedContainer : allocatedContainers) {
-            int allocated_num = dockerAppMaster.numAllocatedContainers.getAndIncrement();
-            if(allocated_num >= dockerAppMaster.numberContainer) {
-                break;
-            }
+            dockerAppMaster.numAllocatedContainers.getAndIncrement();
 
             LOG.info("Launching shell command on a new container."
                     + ", containerId=" + allocatedContainer.getId()
@@ -103,16 +95,25 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                     + ", containerResourceVirtualCores"
                     + allocatedContainer.getResource().getVirtualCores());
 
+            // launch and start the container on a separate thread to keep
+            // the main thread unblocked
             LaunchContainerRunnable runnableLaunchContainer =
                     new LaunchContainerRunnable(allocatedContainer, dockerAppMaster);
             Thread launchThread = new Thread(runnableLaunchContainer);
-
-            // launch and start the container on a separate thread to keep
-            // the main thread unblocked
-            // as all containers may not be allocated at one go.
             dockerAppMaster.launchThreads.add(launchThread);
             launchThread.start();
 
+            // About extra containers being allocated.
+            // http://mapreduce-user.hadoop.apache.narkive.com/UKO7MiTd/about-extra-containers-being-allocated-in-distributed-shell-example
+            // YARN-1902 , SPARK-2687, SLIDER-829, SLIDER-828
+            // After get allocated container, container request is remove manually
+            if(!dockerAppMaster.requestList.isEmpty()){
+                try {
+                    dockerAppMaster.getRMClientAsync().removeContainerRequest(dockerAppMaster.requestList.take());
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
@@ -127,8 +128,10 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
     @Override
     public float getProgress() {
         // set progress to deliver to RM on next heartbeat
-        float progress = (float) dockerAppMaster.numCompletedContainers.get()
-                / dockerAppMaster.numberContainer;
+        int allocated = dockerAppMaster.numAllocatedContainers.get();
+        int total = dockerAppMaster.numberContainer;
+        int complete = dockerAppMaster.numCompletedContainers.get();
+        float progress =((float) (allocated + complete) )/ ( (float) (total * 2) ) ;
         return progress;
     }
 

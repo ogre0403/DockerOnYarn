@@ -210,7 +210,7 @@ public class MyClient {
             classPathEnv.append(c.trim());
         }
         classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append(
-                "./log4j.properties");
+                "log4j.properties");
         env.put("CLASSPATH", classPathEnv.toString());
 
         // Set the necessary command to execute the application master

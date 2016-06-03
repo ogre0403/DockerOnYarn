@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -78,6 +79,10 @@ public class DockerAppMaster {
     protected List<Thread> launchThreads = new ArrayList<Thread>();
 
     protected  Map<String, String> envs;
+
+    // YARN-1902 , SPARK-2687, SLIDER-829, SLIDER-828
+    // keep track container request, will be removed after get allocated container
+    protected LinkedBlockingQueue<AMRMClient.ContainerRequest> requestList = new LinkedBlockingQueue<>();
 
     public DockerAppMaster() {
         // Set up the configuration
@@ -145,7 +150,9 @@ public class DockerAppMaster {
         LOG.info("Starting DockerAppMaster");
 
         AMRMClientAsync.CallbackHandler allocListener = new RMCallbackHandler(this);
-        rmClientAsync = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
+        // Too small heartbeat interval, e.g, 1000ms, will results request more container
+        // at AM startup
+        rmClientAsync = AMRMClientAsync.createAMRMClientAsync(10000, allocListener);
         rmClientAsync.init(conf);
         rmClientAsync.start();
 
@@ -161,7 +168,7 @@ public class DockerAppMaster {
         // Register self with ResourceManager. This will start heartbeating to the RM
         appMasterHostname = NetUtils.getHostname();
         RegisterApplicationMasterResponse response = rmClientAsync
-                .registerApplicationMaster(appMasterHostname, -1, "");
+                .registerApplicationMaster(appMasterHostname, 123, "http://abc/");
 
         saintyCheckMemVcoreLimit(response);
 
@@ -177,6 +184,7 @@ public class DockerAppMaster {
         for (int i = 0; i < numTotalContainersToRequest; ++i) {
             AMRMClient.ContainerRequest containerAsk = setupContainerAskForRM();
             rmClientAsync.addContainerRequest(containerAsk);
+            requestList.put(containerAsk);
         }
 
         numRequestedContainers.set(numTotalContainersToRequest);
@@ -256,8 +264,7 @@ public class DockerAppMaster {
         FinalApplicationStatus appStatus;
         String appMessage = null;
         boolean success = true;
-        if (numFailedContainers.get() == 0 &&
-                numCompletedContainers.get() == numberContainer) {
+        if (numCompletedContainers.get() - numFailedContainers.get() >= numberContainer) {
             appStatus = FinalApplicationStatus.SUCCEEDED;
         } else {
             appStatus = FinalApplicationStatus.FAILED;
