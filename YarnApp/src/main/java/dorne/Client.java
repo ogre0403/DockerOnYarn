@@ -325,6 +325,9 @@ public class Client {
 
 
     private void buildAMEnv(Map<String, String> env) throws IOException {
+        //todo:
+        // add libthrift.jar to container local resource
+
         LOG.info("Set the environment for the application master");
 
         // Add AppMaster.jar location to classpath

@@ -2,6 +2,9 @@ package dorne;
 
 import org.apache.commons.cli.Options;
 
+import java.io.IOException;
+import java.net.ServerSocket;
+
 /**
  * Created by 1403035 on 2016/5/20.
  */
@@ -34,4 +37,18 @@ public class Util {
 
         return opts;
     }
+
+    public static int getAvailablePort() throws IOException {
+        ServerSocket socket = null;
+        int port = 0;
+        try {
+            socket = new ServerSocket(0);
+            port = socket.getLocalPort();
+        } finally {
+            if (socket!=null)
+                socket.close();
+        }
+        return port;
+    }
+
 }

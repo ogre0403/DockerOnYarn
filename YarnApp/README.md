@@ -8,3 +8,9 @@
    --docker_service_args 20#www.google.com  
    --docker_container_num 3 
  ```
+ 
+ ```
+ $ hadoop jar dorne-1.0-SNAPSHOT.jar dorne.thrift.ThriftClient \ 
+   <AM_HOST> <AM_PORT> <NUM_CONTAINER>
+ ```
+ 

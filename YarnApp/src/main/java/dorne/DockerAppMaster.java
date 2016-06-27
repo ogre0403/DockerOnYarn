@@ -1,5 +1,6 @@
 package dorne;
 
+import dorne.thrift.ThriftServer;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.Options;
@@ -21,6 +22,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.log4j.LogManager;
+import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,9 +49,7 @@ public class DockerAppMaster {
     protected String containerCmdArgs = "";
     protected String containerType = "";
 
-    // TODO
-    // For status update for clients - yet to be implemented
-    // Hostname of the container
+    // Hostname of the am container
     private String appMasterHostname = "";
 
     // Handle to communicate with the Resource Manager
@@ -84,6 +84,9 @@ public class DockerAppMaster {
     // keep track container request, will be removed after get allocated container
     protected LinkedBlockingQueue<AMRMClient.ContainerRequest> requestList = new LinkedBlockingQueue<>();
 
+    // Thrift RPC server, listen command from Client
+    protected ThriftServer thriftServer;
+
     public DockerAppMaster() {
         // Set up the configuration
         conf = new YarnConfiguration();
@@ -114,22 +117,22 @@ public class DockerAppMaster {
         }
     }
 
-    public boolean init(String[] args) throws ParseException {
+    public boolean init(String[] args) throws ParseException, TTransportException {
 
         Options opts = Util.AMOptions();
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
         // read container number or use default value 1
-            numberContainer = Integer.parseInt(
+        numberContainer = Integer.parseInt(
                     cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, "1"));
 
         // read container mem configuration or use default vale 1024 MB
-            containerMemory = Integer.parseInt(
+        containerMemory = Integer.parseInt(
                     cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, "1024"));
 
         // read container cpu core configuration or use default vale 1
-            containerCore = Integer.parseInt(
+        containerCore = Integer.parseInt(
                     cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, "1"));
 
         if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE)){
@@ -141,6 +144,14 @@ public class DockerAppMaster {
         containerCmdArgs = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS);
 
         envs = System.getenv();
+
+        try {
+            int freeport= Util.getAvailablePort();
+            thriftServer = new ThriftServer(freeport, this);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return  false;
+        }
 
         return true;
     }
@@ -164,11 +175,12 @@ public class DockerAppMaster {
 
         // TODO
         // Setup local RPC Server to accept status requests directly from clients
+        new Thread(thriftServer).start();
 
         // Register self with ResourceManager. This will start heartbeating to the RM
         appMasterHostname = NetUtils.getHostname();
         RegisterApplicationMasterResponse response = rmClientAsync
-                .registerApplicationMaster(appMasterHostname, 123, "http://abc/");
+                .registerApplicationMaster(appMasterHostname, thriftServer.getPort(), "http://abc/");
 
         saintyCheckMemVcoreLimit(response);
 
@@ -295,6 +307,10 @@ public class DockerAppMaster {
     public NMClientAsync getNMClientAsync() { return this.nmClientAsync;}
 
     public AMRMClientAsync getRMClientAsync(){return this.rmClientAsync;}
+
+    public LinkedBlockingQueue getRequestList(){
+        return  requestList;
+    }
 
     public void setDone(boolean done){this.done = done;}
 
