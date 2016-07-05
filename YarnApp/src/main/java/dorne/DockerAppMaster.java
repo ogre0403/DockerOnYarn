@@ -167,7 +167,7 @@ public class DockerAppMaster {
         AMRMClientAsync.CallbackHandler allocListener = new RMCallbackHandler(this);
         // Too small heartbeat interval, e.g, 1000ms, will results request more container
         // at AM startup
-        rmClientAsync = AMRMClientAsync.createAMRMClientAsync(15000, allocListener);
+        rmClientAsync = AMRMClientAsync.createAMRMClientAsync(10000, allocListener);
         rmClientAsync.init(conf);
         rmClientAsync.start();
 
@@ -176,8 +176,6 @@ public class DockerAppMaster {
         nmClientAsync.init(conf);
         nmClientAsync.start();
 
-
-        // TODO
         // Setup local RPC Server to accept status requests directly from clients
         new Thread(thriftServer).start();
 
@@ -196,6 +194,8 @@ public class DockerAppMaster {
 
         int numTotalContainersToRequest =
                 numberContainer - previousAMRunningContainers.size();
+
+        Thread.sleep(5000);
 
         for (int i = 0; i < numTotalContainersToRequest; ++i) {
             AMRMClient.ContainerRequest containerAsk = setupContainerAskForRM();

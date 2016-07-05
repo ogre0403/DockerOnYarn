@@ -40,6 +40,15 @@ public class Util {
         return opts;
     }
 
+    public static Options ThriftClientOption(){
+        Options opts = new Options();
+        opts.addOption("server", true, "thrift server IP");
+        opts.addOption("port", true, "thrift server port");
+        opts.addOption("operation", true, "add/remove/show");
+        opts.addOption("num", true, "number of containers to add/remove");
+        return opts;
+    }
+
     public static int getAvailablePort() throws IOException {
         ServerSocket socket = null;
         int port = 0;

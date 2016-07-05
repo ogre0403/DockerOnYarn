@@ -22,6 +22,8 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
 
     @Override
     public void onContainersCompleted(List<ContainerStatus> completedContainers) {
+        // TODO:
+        // remove exist docker container
         LOG.info("Got response from RM for container ask, completedCnt="
                 + completedContainers.size());
         for (ContainerStatus containerStatus : completedContainers) {
