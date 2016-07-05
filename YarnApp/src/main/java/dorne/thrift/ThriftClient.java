@@ -9,6 +9,9 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import java.util.Iterator;
+import java.util.Map;
+
 /**
  * Created by 1403035 on 2016/6/3.
  */
@@ -30,8 +33,19 @@ public class ThriftClient {
 
     public void callRPC(int n) throws TException {
         client.addContainer(n);
-//        int result = client.add(100,200);
-//        LOG.info("RPC result: "+ result);
+    }
+
+    public void callRPC2() throws TException {
+        Map<String, String> kv = client.showContainer();
+        Iterator iter = kv.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<String,String> entry = (Map.Entry) iter.next();
+            System.out.println(entry.getKey() + "/" + entry.getValue());
+        }
+    }
+
+    public void callRPC3(int n) throws TException {
+        client.delContainer(n);
     }
 
     public void close(){
@@ -41,7 +55,9 @@ public class ThriftClient {
     public static void main(String[] args) throws TException {
         int container_n = Integer.parseInt(args[2]);
         ThriftClient client = new ThriftClient(args[0], Integer.parseInt(args[1]));
-        client.callRPC(container_n);
+//        client.callRPC(container_n);
+//        client.callRPC2();
+        client.callRPC3(container_n);
         client.close();
     }
 }

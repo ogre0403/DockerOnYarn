@@ -1,11 +1,19 @@
 package dorne.thrift;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
+import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.thrift.TException;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Created by 1403035 on 2016/6/4.
@@ -36,7 +44,31 @@ public class DockerServiceHandler implements DockerService.Iface {
 
     @Override
     public void delContainer(int n) throws TException {
+        LinkedBlockingQueue<Pair<String, String>> queue = dockerAppMaster.getContainerList();
+        int queue_size = queue.size();
+        int size = queue_size < n ? queue_size : n;
 
+        for(int i = 0;i < size; i++){
+            Pair<String, String> element = queue.poll();
+
+            DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
+                    .withDockerHost("tcp://" + element.getValue() +":2375")
+                    .build();
+            DockerClient docker = DockerClientBuilder.getInstance(config).build();
+            docker.stopContainerCmd(element.getKey()).exec();
+            docker.removeContainerCmd(element.getKey()).exec();
+
+        }
+    }
+
+    @Override
+    public Map<String, String> showContainer() throws TException {
+        LinkedBlockingQueue<Pair<String, String>> queue = dockerAppMaster.getContainerList();
+        HashMap<String, String> map = new HashMap<>();
+        for(Pair<String,String> p : queue){
+            map.put(p.getKey(),p.getValue());
+        }
+        return map;
     }
 
     private AMRMClient.ContainerRequest setupContainerAskForRM() {

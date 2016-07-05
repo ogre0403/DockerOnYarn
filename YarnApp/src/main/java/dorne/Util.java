@@ -19,6 +19,8 @@ public class Util {
                 "Amount of virtual cores to run AM");
         opts.addOption(DorneConst.DOREN_OPTS_JAR, true,
                 "Jar file containing the application master");
+        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE, true,
+                "Prebuild dockerized service type");
         return opts;
     }
 

@@ -146,11 +146,7 @@ public class Client {
         }
         appMasterJar = cliParser.getOptionValue("jar");
 
-
-        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE)){
-            throw new IllegalArgumentException("No docker type specified");
-        }
-        containerType = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE);
+        containerType = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE, "attach");
 
         containerCmdArgs = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS);
 
@@ -298,7 +294,7 @@ public class Client {
                     is = getClass().getResourceAsStream("/demo/nginx.sh");
                     break;
                 default:
-                    is = getClass().getResourceAsStream("/demo/ping.sh");
+                    is = getClass().getResourceAsStream("/demo/attach.sh");
             }
             String shellPathSuffix = appName + "/" + appId.toString() + "/" + DorneConst.DOREN_DEMO_FILE;
             Path shellDst = new Path(fs.getHomeDirectory(), shellPathSuffix);
@@ -325,8 +321,7 @@ public class Client {
 
 
     private void buildAMEnv(Map<String, String> env) throws IOException {
-        //todo:
-        // add libthrift.jar to container local resource
+
 
         LOG.info("Set the environment for the application master");
 
@@ -338,12 +333,24 @@ public class Client {
         // the classpath to "." for the application jar
         StringBuilder classPathEnv = new StringBuilder(ApplicationConstants.Environment.CLASSPATH.$$())
                 .append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("./*");
+
+        //TODO:
+        // add hadoop config dir
+        // add dorne required JAR
+        // add libthrift.jar to container local resource
+
+        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/opt/hadoop/etc/hadoop");
+        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/dorne_api/*");
+//        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/yarn_api/*");
+
+        /*
         for (String c : conf.getStrings(
                 YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                 YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
             classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR);
             classPathEnv.append(c.trim());
         }
+        */
 
         env.put("CLASSPATH", classPathEnv.toString());
     }

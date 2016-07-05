@@ -1,5 +1,16 @@
  ### 
- aaa
+ 
+ ```
+ $ mvn clean dependency:copy-dependencies package
+ copy all jars in target/dependceny into $DORNE_HOME/lib on each host
+ ```
+ 
+ ```
+ $ hadoop jar dorne-1.0-SNAPSHOT.jar  dorne.Client \
+   --jar dorne-1.0-SNAPSHOT.jar \
+   --docker_container_num 5 \
+   --appname num_5
+ ```
  
  ```
  $ hadoop jar dorne-1.0-SNAPSHOT.jar dorne.Client \

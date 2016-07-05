@@ -97,8 +97,8 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
 
             // launch and start the container on a separate thread to keep
             // the main thread unblocked
-            LaunchContainerRunnable runnableLaunchContainer =
-                    new LaunchContainerRunnable(allocatedContainer, dockerAppMaster);
+            ContainerLauncher runnableLaunchContainer =
+                    new APILauncher(allocatedContainer, dockerAppMaster);
             Thread launchThread = new Thread(runnableLaunchContainer);
             dockerAppMaster.launchThreads.add(launchThread);
             launchThread.start();

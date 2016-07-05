@@ -7,6 +7,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.ExitUtil;
@@ -87,6 +88,9 @@ public class DockerAppMaster {
     // Thrift RPC server, listen command from Client
     protected ThriftServer thriftServer;
 
+    // Keeping <dockerContainerID, Host>, docker container on which host
+    protected LinkedBlockingQueue<Pair<String,String>> dockerContainerList = new LinkedBlockingQueue<>();
+
     public DockerAppMaster() {
         // Set up the configuration
         conf = new YarnConfiguration();
@@ -163,7 +167,7 @@ public class DockerAppMaster {
         AMRMClientAsync.CallbackHandler allocListener = new RMCallbackHandler(this);
         // Too small heartbeat interval, e.g, 1000ms, will results request more container
         // at AM startup
-        rmClientAsync = AMRMClientAsync.createAMRMClientAsync(10000, allocListener);
+        rmClientAsync = AMRMClientAsync.createAMRMClientAsync(15000, allocListener);
         rmClientAsync.init(conf);
         rmClientAsync.start();
 
@@ -311,6 +315,8 @@ public class DockerAppMaster {
     public LinkedBlockingQueue getRequestList(){
         return  requestList;
     }
+
+    public LinkedBlockingQueue getContainerList(){return dockerContainerList;}
 
     public void setDone(boolean done){this.done = done;}
 
