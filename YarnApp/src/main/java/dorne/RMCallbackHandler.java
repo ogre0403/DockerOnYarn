@@ -1,5 +1,7 @@
 package dorne;
 
+import dorne.launcher.APILauncher;
+import dorne.launcher.ContainerLauncher;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.*;
@@ -43,28 +45,28 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                 if (ContainerExitStatus.ABORTED != exitStatus) {
                     // shell script failed
                     // counts as completed
-                    dockerAppMaster.numCompletedContainers.incrementAndGet();
-                    dockerAppMaster.numFailedContainers.incrementAndGet();
+                    dockerAppMaster.getNumCompletedContainers().incrementAndGet();
+                    dockerAppMaster.getNumFailedContainers().incrementAndGet();
                 } else {
                     // container was killed by framework, possibly preempted
                     // we should re-try as the container was lost for some reason
-                    dockerAppMaster.numAllocatedContainers.decrementAndGet();
-                    dockerAppMaster.numRequestedContainers.decrementAndGet();
+                    dockerAppMaster.getNumAllocatedContainers().decrementAndGet();
+                    dockerAppMaster.getNumRequestedContainers().decrementAndGet();
                     // we do not need to release the container as it would be done
                     // by the RM
                 }
             } else {
                 // nothing to do
                 // container completed successfully
-                dockerAppMaster.numCompletedContainers.incrementAndGet();
+                dockerAppMaster.getNumCompletedContainers().incrementAndGet();
                 LOG.info("Container completed successfully." + ", containerId="
                         + containerStatus.getContainerId());
             }
         }
 
         // ask for more containers if any failed
-        int askCount = dockerAppMaster.numberContainer - dockerAppMaster.numRequestedContainers.get();
-        dockerAppMaster.numRequestedContainers.addAndGet(askCount);
+        int askCount = dockerAppMaster.numberContainer - dockerAppMaster.getNumRequestedContainers().get();
+        dockerAppMaster.getNumRequestedContainers().addAndGet(askCount);
 
         if (askCount > 0) {
             for (int i = 0; i < askCount; ++i) {
@@ -73,8 +75,8 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
             }
         }
 
-        LOG.info("completed container num : " + dockerAppMaster.numCompletedContainers.get());
-        if (dockerAppMaster.numCompletedContainers.get() == dockerAppMaster.numberContainer) {
+        LOG.info("completed container num : " + dockerAppMaster.getNumCompletedContainers().get());
+        if (dockerAppMaster.getNumCompletedContainers().get() == dockerAppMaster.numberContainer) {
             dockerAppMaster.setDone(true);
         }
     }
@@ -85,7 +87,7 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
         LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
 
         for (Container allocatedContainer : allocatedContainers) {
-            dockerAppMaster.numAllocatedContainers.getAndIncrement();
+            dockerAppMaster.getNumAllocatedContainers().getAndIncrement();
 
             LOG.info("Launching shell command on a new container."
                     + ", containerId=" + allocatedContainer.getId()
@@ -130,9 +132,9 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
     @Override
     public float getProgress() {
         // set progress to deliver to RM on next heartbeat
-        int allocated = dockerAppMaster.numAllocatedContainers.get();
+        int allocated = dockerAppMaster.getNumAllocatedContainers().get();
         int total = dockerAppMaster.numberContainer;
-        int complete = dockerAppMaster.numCompletedContainers.get();
+        int complete = dockerAppMaster.getNumCompletedContainers().get();
         float progress =((float) (allocated + complete) )/ ( (float) (total * 2) ) ;
         return progress;
     }

@@ -1,5 +1,7 @@
-package dorne;
+package dorne.launcher;
 
+import dorne.DockerAppMaster;
+import dorne.DorneConst;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.Path;
@@ -19,8 +21,11 @@ public class CLILauncher extends ContainerLauncher{
 
     private static final Log LOG = LogFactory.getLog(CLILauncher.class);
 
+    Map<String, String> envs;
+
     public CLILauncher(Container lcontainer,  DockerAppMaster dockerAppMaster){
         super(lcontainer,dockerAppMaster);
+        this.envs = dockerAppMaster.getEnvs();
     }
 
     @Override
@@ -33,8 +38,32 @@ public class CLILauncher extends ContainerLauncher{
         dockerAppMaster.getNMClientAsync().startContainerAsync(container, ctx);
     }
 
-    private  String buildContainerCmd(){
-        String[] cmdArgs = dockerAppMaster.containerCmdArgs
+    private Map<String, LocalResource> buildContainerLocalResource(){
+        // Set the local resources
+        Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+        Path renamedScriptPath = new Path(envs.get(DorneConst.DOREN_DEMO_SCRIPTLOCATION));
+        LocalResource shellRsrc = Records.newRecord(LocalResource.class);
+        shellRsrc.setType(LocalResourceType.FILE);
+        shellRsrc.setVisibility(LocalResourceVisibility.APPLICATION);
+        try {
+            shellRsrc.setResource(ConverterUtils.getYarnUrlFromURI(new URI(
+                    renamedScriptPath.toString())));
+        } catch (URISyntaxException e) {
+            LOG.error("Error when trying to use shell script path specified"
+                    + " in env, path=" + renamedScriptPath, e);
+            dockerAppMaster.getNumCompletedContainers().incrementAndGet();
+            dockerAppMaster.getNumFailedContainers().incrementAndGet();
+            return null;
+        }
+        shellRsrc.setTimestamp(Long.valueOf(envs.get(DorneConst.DOREN_DEMO_SCRIPTTIMESTAMP)));
+        shellRsrc.setSize(Long.valueOf(envs.get(DorneConst.DOREN_DEMO_SCRIPTLEN)));
+        localResources.put(DorneConst.DOREN_LOCALRESOURCE_SCRIPT, shellRsrc);
+        return localResources;
+    }
+
+
+    public  String buildContainerCmd(){
+        String[] cmdArgs = dockerAppMaster.getContainerCmdArgs()
                 .split(DorneConst.DOREN_ARGS_SEPERATOR);
 
         // Set the necessary command to execute on the allocated container

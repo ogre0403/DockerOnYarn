@@ -58,23 +58,24 @@ public class DockerAppMaster {
 
     // Handle to communicate with the Node Manager
     private NMClientAsync nmClientAsync;
+
     // Listen to process the response from the Node Manager
     protected NMCallbackHandler containerListener;
 
     // Allocated container count so that we know how many containers has the RM
     // allocated to us
-    protected AtomicInteger numAllocatedContainers = new AtomicInteger();
+    private AtomicInteger numAllocatedContainers = new AtomicInteger();
 
     // Count of containers already requested from the RM
     // Needed as once requested, we should not request for containers again.
     // Only request for more if the original requirement changes.
-    protected AtomicInteger numRequestedContainers = new AtomicInteger();
+    private AtomicInteger numRequestedContainers = new AtomicInteger();
 
     // Counter for completed containers ( complete denotes successful or failed )
-    protected AtomicInteger numCompletedContainers = new AtomicInteger();
+    private AtomicInteger numCompletedContainers = new AtomicInteger();
 
     // Count of failed containers
-    protected AtomicInteger numFailedContainers = new AtomicInteger();
+    private AtomicInteger numFailedContainers = new AtomicInteger();
 
     // Launch threads
     protected List<Thread> launchThreads = new ArrayList<Thread>();
@@ -317,6 +318,38 @@ public class DockerAppMaster {
     }
 
     public LinkedBlockingQueue getContainerList(){return dockerContainerList;}
+
+    public NMCallbackHandler getContainerListener(){
+        return containerListener;
+    }
+
+    public LinkedBlockingQueue<Pair<String,String>> getDockerContainerList(){
+        return dockerContainerList;
+    }
+
+    public Map<String, String> getEnvs(){
+        return envs;
+    }
+
+    public AtomicInteger getNumAllocatedContainers(){
+        return numAllocatedContainers;
+    }
+
+    public AtomicInteger getNumRequestedContainers(){
+        return numRequestedContainers;
+    }
+
+    public AtomicInteger getNumCompletedContainers(){
+        return numCompletedContainers;
+    }
+
+    public AtomicInteger getNumFailedContainers(){
+        return numFailedContainers;
+    }
+
+    public String getContainerCmdArgs(){
+        return containerCmdArgs;
+    }
 
     public void setDone(boolean done){this.done = done;}
 

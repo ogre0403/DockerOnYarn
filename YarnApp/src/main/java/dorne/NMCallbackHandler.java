@@ -65,8 +65,8 @@ public class NMCallbackHandler implements NMClientAsync.CallbackHandler{
     public void onStartContainerError(ContainerId containerId, Throwable t) {
         LOG.error("Failed to start Container " + containerId);
         containers.remove(containerId);
-        dockerAppMaster.numCompletedContainers.incrementAndGet();
-        dockerAppMaster.numFailedContainers.incrementAndGet();
+        dockerAppMaster.getNumCompletedContainers().incrementAndGet();
+        dockerAppMaster.getNumFailedContainers().incrementAndGet();
     }
 
     @Override

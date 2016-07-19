@@ -1,20 +1,17 @@
-package dorne;
+package dorne.launcher;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
+import dorne.DockerAppMaster;
+import dorne.DorneConst;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.math3.util.Pair;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.*;
-import org.apache.hadoop.yarn.util.ConverterUtils;
-import org.apache.hadoop.yarn.util.Records;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.*;
 
 
@@ -23,7 +20,7 @@ import java.util.*;
  */
 public class APILauncher extends ContainerLauncher {
 
-    private static final Log LOG = LogFactory.getLog(CLILauncher.class);
+    private static final Log LOG = LogFactory.getLog(APILauncher.class);
 
     // YARN related parameters
     String yarnContainerHost;
@@ -57,7 +54,7 @@ public class APILauncher extends ContainerLauncher {
         docker.startContainerCmd(this.dockerContainerID).exec();
 
         try {
-            dockerAppMaster.dockerContainerList.put(
+            dockerAppMaster.getDockerContainerList().put(
                     new Pair<>(this.dockerContainerID, this.yarnContainerHost));
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -65,7 +62,6 @@ public class APILauncher extends ContainerLauncher {
 
 
         // attach to a running container using docker CLI
-        ctx.setLocalResources(buildContainerLocalResource());
         List<String> commands = new ArrayList<String>();
         commands.add(buildContainerCmd());
         ctx.setCommands(commands);
@@ -73,12 +69,10 @@ public class APILauncher extends ContainerLauncher {
         dockerAppMaster.getNMClientAsync().startContainerAsync(container, ctx);
     }
 
-
-
-    private  String buildContainerCmd(){
+    public  String buildContainerCmd(){
         Vector<CharSequence> vargs = new Vector<>();
-        vargs.add("bash");
-        vargs.add(DorneConst.DOREN_LOCALRESOURCE_SCRIPT);
+        vargs.add("docker");
+        vargs.add("attach");
         vargs.add(this.dockerContainerID);
         StringBuilder command = new StringBuilder();
         for (CharSequence str : vargs) {
