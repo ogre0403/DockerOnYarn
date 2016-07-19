@@ -1,8 +1,5 @@
 package dorne;
 
-/**
- * Created by 1403035 on 2016/5/12.
- */
 public class DorneConst {
 
     // application master class name
@@ -37,4 +34,16 @@ public class DorneConst {
 
     // script name on each nodemanager
     static public final String DOREN_LOCALRESOURCE_SCRIPT = "ExecScript.sh";
+
+    // Timeline server entity
+    public static enum DORNE_ENTITY {
+        DORNE_APP,
+        DORNE_CONTAINER
+    }
+
+    // Timeline server event
+    public static enum DORNE_EVENT {
+        DORNE_APP_ATTEMPT_START, DORNE_APP_ATTEMPT_END,
+        DORNE_CONTAINER_START, DORNE_CONTAINER_END
+    }
 }
