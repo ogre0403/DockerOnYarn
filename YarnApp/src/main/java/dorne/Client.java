@@ -51,23 +51,14 @@ public class Client {
     // Application master jar file
     private String appMasterJar = "";
 
-    // Amt of memory to request for container in which shell script will be executed
-    private int containerMemory = 1024;
-    // Amt. of virtual cores to request for container in which shell script will be executed
-    private int containerVirtualCores = 1;
-    // No. of containers in which the shell script needs to be executed
-    private int numContainers = 1;
-
-    // service type used by docker container
-    private String containerType="";
-
-    private String containerCmdArgs = "";
+    private String composeYAML = "";
 
     // Command line options
     private Options opts;
 
     private static final String appMasterJarPath = "AppMaster.jar";
 
+    private static final String composeYAMLPath = "compose.yaml";
 
     public Client() throws Exception  {
         this(new YarnConfiguration());
@@ -146,24 +137,7 @@ public class Client {
         }
         appMasterJar = cliParser.getOptionValue("jar");
 
-        containerType = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE, "attach");
-
-        containerCmdArgs = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS);
-
-        containerMemory = Integer.parseInt(
-                cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, "1024"));
-        containerVirtualCores = Integer.parseInt(
-                cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, "1"));
-        numContainers = Integer.parseInt(
-                cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, "1"));
-
-        if (containerMemory < 0 || containerVirtualCores < 0 || numContainers < 1) {
-            throw new IllegalArgumentException("Invalid no. of containers or container memory/vcores specified,"
-                    + " exiting."
-                    + " Specified containerMemory=" + containerMemory
-                    + ", containerVirtualCores=" + containerVirtualCores
-                    + ", numContainer=" + numContainers);
-        }
+        composeYAML = cliParser.getOptionValue("yaml", "compose.yaml");
 
         return true;
     }
@@ -190,7 +164,7 @@ public class Client {
         // set environment veriable for AM
         Map<String, String> env = new HashMap<String, String>();
         buildAMEnv(env);
-        buildAMEnvForShell(env, appId);
+//        buildAMEnvForShell(env, appId);
         amContainer.setEnvironment(env);
 
         // build command for AM
@@ -257,23 +231,29 @@ public class Client {
 
     }
 
+    /*
+    * Copy resource from localhost to HDFS, and set local resources for the application master
+    * local files or archives as needed.
+    * In this scenario, application master jar and yaml file are required.
+    * */
     private Map<String, LocalResource> buildAMLocalResource(ApplicationId appId) throws IOException {
-        // set local resources for the application master
-        // local files or archives as needed
-        // In this scenario, the jar file for the application master is part of the local resources
         Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 
         LOG.info("Copy App Master jar from local filesystem and add to local environment");
-        // Copy the application master jar to the filesystem
-        // Create a local resource to point to the destination jar path
         FileSystem fs = FileSystem.get(conf);
-        addToLocalResources(fs, appMasterJar, appMasterJarPath, appId.toString(),
-                localResources, null);
+        addToLocalResources(fs, appMasterJar, appMasterJarPath, appId.toString(), localResources, null);
 
-
+        LOG.info("Copy yaml file from local filesystem and add to local environment");
+        addToLocalResources(fs, composeYAML, composeYAMLPath, appId.toString(), localResources, null);
         return localResources;
     }
 
+    /*
+    *  Put shell script file into HDFS, and save the file path in env Map.
+    *  CLILuancher will use env Map to download shell script file and add
+    *  localresource.
+    * */
+    /*
     private void buildAMEnvForShell(Map<String, String> env, ApplicationId appId) throws IOException {
 
         FileSystem fs = FileSystem.get(conf);
@@ -318,29 +298,31 @@ public class Client {
             env.put(DorneConst.DOREN_DEMO_SCRIPTLEN, Long.toString(hdfsShellScriptLen));
         }
     }
+    */
 
-
+    /**
+     * Set the environment variable for execute application master.
+     * Most important variable is CLASSPATH.
+     * CLASSPATH has to contain:
+     *    - Hadoop configuration folder : append HADOOP_HOME
+     *    - dorne required JAR : append
+     *    - AppMaster jar : append "./*"
+     * */
     private void buildAMEnv(Map<String, String> env) throws IOException {
-
-
         LOG.info("Set the environment for the application master");
+        StringBuilder classPathEnv = new StringBuilder();
+        classPathEnv.append(ApplicationConstants.Environment.CLASSPATH.$$())
+                .append(ApplicationConstants.CLASS_PATH_SEPARATOR)
+                .append("./*")
+                .append(ApplicationConstants.CLASS_PATH_SEPARATOR)
+                .append("/opt/hadoop/etc/hadoop")
+                .append(ApplicationConstants.CLASS_PATH_SEPARATOR)
+                .append("/home/hadoop/dorne_api/*");
 
-        // Add AppMaster.jar location to classpath
-        // At some point we should not be required to add
-        // the hadoop specific classpaths to the env.
-        // It should be provided out of the box.
-        // For now setting all required classpaths including
-        // the classpath to "." for the application jar
-        StringBuilder classPathEnv = new StringBuilder(ApplicationConstants.Environment.CLASSPATH.$$())
-                .append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("./*");
+        env.put("CLASSPATH", classPathEnv.toString());
 
-        //TODO:
-        // add hadoop config dir
-        // add dorne required JAR
-        // add libthrift.jar to container local resource
-
-        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/opt/hadoop/etc/hadoop");
-        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/dorne_api/*");
+//        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/opt/hadoop/etc/hadoop");
+//        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/dorne_api/*");
 //        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/yarn_api/*");
 
         /*
@@ -351,10 +333,11 @@ public class Client {
             classPathEnv.append(c.trim());
         }
         */
-
-        env.put("CLASSPATH", classPathEnv.toString());
     }
 
+    /*
+    * Build AM launch command
+    * */
     private String buildAMCommand(){
 
         // Set the necessary command to execute the application master
@@ -363,17 +346,10 @@ public class Client {
         // Set java executable command
         LOG.info("Setting up app master command");
         vargs.add(ApplicationConstants.Environment.JAVA_HOME.$$() + "/bin/java");
-//        vargs.add(" -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005 ");
         // Set Xmx based on am memory size
         vargs.add("-Xmx" + amMemory + "m");
         // Set class name
         vargs.add(appMasterMainClass);
-        // Set params for Application Master
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM + " " + String.valueOf(containerMemory));
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE+ " " + String.valueOf(containerVirtualCores));
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM + " " + String.valueOf(numContainers));
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_SERVICE + " " + String.valueOf(containerType));
-        vargs.add("--" + DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS + " " + String.valueOf(containerCmdArgs));
         vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
         vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
 
@@ -386,6 +362,10 @@ public class Client {
         return command.toString();
     }
 
+    /*
+    * Put file into HDFS, and create localResource Map.
+    * AppMaster will download localresource to localhost
+    * */
     private void addToLocalResources(FileSystem fs, String fileSrcPath,
                                      String fileDstPath, String appId, Map<String, LocalResource> localResources,
                                      String resources) throws IOException {

@@ -19,23 +19,23 @@ public class Util {
                 "Amount of virtual cores to run AM");
         opts.addOption(DorneConst.DOREN_OPTS_JAR, true,
                 "Jar file containing the application master");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE, true,
-                "Prebuild dockerized service type");
+        opts.addOption(DorneConst.DOREN_OPTS_YAML, true,
+                "Dorne configuration file. Default is compose.yaml. ");
         return opts;
     }
 
     public static Options AMOptions(){
         Options opts = new Options();
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, true,
-                "No. of containers on which the shell command needs to be executed");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, true,
-                "Amount of memory in MB to be requested to run docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, true,
-                "Amount of core to be requested to run docker container");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE, true,
-                "Prebuild dockerized service type");
-        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS, true,
-                "dockerized service command arguments");
+//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, true,
+//                "No. of containers on which the shell command needs to be executed");
+//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, true,
+//                "Amount of memory in MB to be requested to run docker container");
+//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, true,
+//                "Amount of core to be requested to run docker container");
+//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE, true,
+//                "Prebuild dockerized service type");
+//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS, true,
+//                "dockerized service command arguments");
 
         return opts;
     }

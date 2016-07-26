@@ -1,12 +1,14 @@
 package dorne.launcher;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
 import dorne.DorneConst;
+import dorne.bean.ServiceBean;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.math3.util.Pair;
@@ -16,7 +18,7 @@ import java.util.*;
 
 
 /**
- * Created by 1403035 on 2016/6/29.
+ * See https://github.com/docker-java/docker-java/wiki for other example
  */
 public class APILauncher extends ContainerLauncher {
 
@@ -28,28 +30,25 @@ public class APILauncher extends ContainerLauncher {
     //Docker related parameters
     DockerClient docker;
     String dockerContainerID;
-    String dockerImageName;
-    String dockerContainerCmd;
+    ServiceBean service;
 
-    public APILauncher(Container yarnContainer,  DockerAppMaster dockerAppMaster){
+    public APILauncher(Container yarnContainer, ServiceBean service ,DockerAppMaster dockerAppMaster){
         super(yarnContainer, dockerAppMaster);
         this.yarnContainerHost = yarnContainer.getNodeId().getHost();
 
         // create docker java client
         DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
-                .withDockerHost("tcp://" + yarnContainerHost + ":2375")
+                .withDockerHost("tcp://" + yarnContainerHost + ":" + DorneConst.DOREN_DOCKERHOST_PORT)
                 .build();
         this.docker = DockerClientBuilder.getInstance(config).build();
 
-        // TODO: get docker container from parameter
-        this.dockerImageName = "nginx";
+        this.service = service;
     }
 
     @Override
     public void process(ContainerLaunchContext ctx) {
         // Start docker container using docker-java API
-        CreateContainerResponse dockerContainer =
-                docker.createContainerCmd(this.dockerImageName).exec();
+        CreateContainerResponse dockerContainer = setupDockerClient(this.service);
         this.dockerContainerID = dockerContainer.getId();
         docker.startContainerCmd(this.dockerContainerID).exec();
 
@@ -61,19 +60,53 @@ public class APILauncher extends ContainerLauncher {
         }
 
 
-        // attach to a running container using docker CLI
+        // Because YARN create processes on nodemanager by shell command eventually,
+        // we create a docker attach command to attach a running container.
         List<String> commands = new ArrayList<String>();
-        commands.add(buildContainerCmd());
+        commands.add(attachContainerCmd(this.dockerContainerID));
         ctx.setCommands(commands);
         containerListener.addContainer(container.getId(), container);
         dockerAppMaster.getNMClientAsync().startContainerAsync(container, ctx);
     }
 
-    public  String buildContainerCmd(){
+    /*
+    * Setup CreateContainerCmd using ServiceBean context
+    * */
+    private CreateContainerResponse setupDockerClient(ServiceBean service){
+
+        CreateContainerCmd cmd ;
+
+        // setup image
+        if(service.getImage().isEmpty() || service.getImage() == null) {
+            return null;
+        }else{
+            cmd = docker.createContainerCmd(this.service.getImage());
+        }
+
+        // setup command
+        if(service.getCommand() !=null && !service.getCommand().isEmpty() ){
+            String cmdString = service.getCommand();
+            cmd.withCmd(Arrays.asList(cmdString.split(" ")));
+        }
+
+        // setup container memory limit
+        if(service.getMemory() != null)
+            cmd.withMemory(service.getMemoryInByte());
+
+        // TODO: setup other docker container properties from ServiceBean
+
+        // Execute created command and return response
+        return cmd.exec();
+    }
+
+    /**
+     * create docker attach CLI command
+     * */
+    private String attachContainerCmd(String contianerID){
         Vector<CharSequence> vargs = new Vector<>();
         vargs.add("docker");
         vargs.add("attach");
-        vargs.add(this.dockerContainerID);
+        vargs.add(contianerID);
         StringBuilder command = new StringBuilder();
         for (CharSequence str : vargs) {
             command.append(str).append(" ");

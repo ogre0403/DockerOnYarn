@@ -63,8 +63,8 @@ public class CLILauncher extends ContainerLauncher{
 
 
     public  String buildContainerCmd(){
-        String[] cmdArgs = dockerAppMaster.getContainerCmdArgs()
-                .split(DorneConst.DOREN_ARGS_SEPERATOR);
+//        String[] cmdArgs = dockerAppMaster.getContainerCmdArgs().split(DorneConst.DOREN_ARGS_SEPERATOR);
+        String[] cmdArgs = null;
 
         // Set the necessary command to execute on the allocated container
         Vector<CharSequence> vargs = new Vector<>();

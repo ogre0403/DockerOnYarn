@@ -1,5 +1,6 @@
 package dorne;
 
+import dorne.bean.ServiceBean;
 import dorne.launcher.APILauncher;
 import dorne.launcher.ContainerLauncher;
 import org.apache.commons.logging.Log;
@@ -98,11 +99,13 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                     + allocatedContainer.getResource().getMemory()
                     + ", containerResourceVirtualCores"
                     + allocatedContainer.getResource().getVirtualCores());
+            LOG.info(dockerAppMaster.getComposeConfig().size());
 
-            // launch and start the container on a separate thread to keep
-            // the main thread unblocked
+            String key = dockerAppMaster.getComposeConfig().keySet().iterator().next();
+            ServiceBean service = dockerAppMaster.getComposeConfig().remove(key);
+            // launch and start the container on a separate thread to keep the main thread unblocked
             ContainerLauncher runnableLaunchContainer =
-                    new APILauncher(allocatedContainer, dockerAppMaster);
+                    new APILauncher(allocatedContainer, service, dockerAppMaster);
             Thread launchThread = new Thread(runnableLaunchContainer);
             dockerAppMaster.launchThreads.add(launchThread);
             launchThread.start();

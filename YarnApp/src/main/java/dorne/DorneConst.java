@@ -9,11 +9,21 @@ public class DorneConst {
     // client opts name
     static public final String DOREN_OPTS_APPNAME = "appname";
     static public final String DOREN_OPTS_JAR = "jar";
+    static public final String DOREN_OPTS_YAML = "yaml";
 
     // AM memory and core
     static public final String DOREN_OPTS_YARN_AM_MEM = "am_memory";
     static public final String DOREN_OPTS_YARN_AM_CORE = "am_vcores";
 
+    static public final String DOREN_LOCALRESOURCE_YAML = "compose.yaml";
+
+    static public final String DOREN_DOCKERHOST_PORT = "2375";
+
+    static public  int DOREN_YARN_CONTAINER_CORE = 1;
+
+    static public  int DOREN_YARN_CONTAINER_MEM = 4096;
+
+    /*
     // docker container num/mem/core
     static public final String DOREN_OPTS_DOCKER_CONTAINER_NUM = "docker_container_num";
     static public final String DOREN_OPTS_DOCKER_CONTAINER_MEM = "docker_container_memory";
@@ -26,14 +36,17 @@ public class DorneConst {
     // odckerized service arguments seperated by #
     static public final String DOREN_ARGS_SEPERATOR = "#";
 
-    //
     static public final String DOREN_DEMO_FILE = "Demo.sh";
+    */
+
     static public final String DOREN_DEMO_SCRIPTLOCATION = "DORENDEMOSCRIPTLOCATION";
     static public final String DOREN_DEMO_SCRIPTTIMESTAMP = "DORENDEMOSCRIPTTIMESTAMP";
     static public final String DOREN_DEMO_SCRIPTLEN = "DORENDEMOSCRIPTLEN";
 
     // script name on each nodemanager
     static public final String DOREN_LOCALRESOURCE_SCRIPT = "ExecScript.sh";
+
+
 
     // Timeline server entity
     public static enum DORNE_ENTITY {

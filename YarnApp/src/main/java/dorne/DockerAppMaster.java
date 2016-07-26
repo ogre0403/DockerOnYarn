@@ -1,5 +1,7 @@
 package dorne;
 
+import dorne.bean.ConfigBean;
+import dorne.bean.ServiceBean;
 import dorne.thrift.ThriftServer;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -24,11 +26,16 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.log4j.LogManager;
 import org.apache.thrift.transport.TTransportException;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.Constructor;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -45,10 +52,6 @@ public class DockerAppMaster {
     private volatile boolean done;
 
     protected int numberContainer ;
-    protected int containerMemory ;
-    protected int containerCore   ;
-    protected String containerCmdArgs = "";
-    protected String containerType = "";
 
     // Hostname of the am container
     private String appMasterHostname = "";
@@ -92,6 +95,8 @@ public class DockerAppMaster {
     // Keeping <dockerContainerID, Host>, docker container on which host
     protected LinkedBlockingQueue<Pair<String,String>> dockerContainerList = new LinkedBlockingQueue<>();
 
+    private ConcurrentHashMap<String, ServiceBean> composeConfig ;
+
     public DockerAppMaster() {
         // Set up the configuration
         conf = new YarnConfiguration();
@@ -122,31 +127,11 @@ public class DockerAppMaster {
         }
     }
 
-    public boolean init(String[] args) throws ParseException, TTransportException {
+    public boolean init(String[] args) throws ParseException, TTransportException, IOException {
+        composeConfig = parseComposeYAML(DorneConst.DOREN_LOCALRESOURCE_YAML);
 
-        Options opts = Util.AMOptions();
-
-        CommandLine cliParser = new GnuParser().parse(opts, args);
-
-        // read container number or use default value 1
-        numberContainer = Integer.parseInt(
-                    cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, "1"));
-
-        // read container mem configuration or use default vale 1024 MB
-        containerMemory = Integer.parseInt(
-                    cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, "1024"));
-
-        // read container cpu core configuration or use default vale 1
-        containerCore = Integer.parseInt(
-                    cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, "1"));
-
-        if(!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE)){
-            throw new IllegalArgumentException(
-                    "Dockerized service type not specified !!");
-        }
-        containerType = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE);
-
-        containerCmdArgs = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS);
+        // read container number
+        numberContainer = composeConfig.size();
 
         envs = System.getenv();
 
@@ -207,6 +192,25 @@ public class DockerAppMaster {
         numRequestedContainers.set(numTotalContainersToRequest);
     }
 
+    private ConcurrentHashMap<String, ServiceBean> parseComposeYAML(String file) throws IOException {
+        FileInputStream fis = null;
+        ConfigBean parsed;
+        try {
+            fis = new FileInputStream(new File(file));
+            Yaml beanLoader = new Yaml(new Constructor(){
+                @Override
+                protected Map<Object, Object> createDefaultMap() {
+                    return new ConcurrentHashMap<>();
+                }
+            });
+            parsed = beanLoader.loadAs(fis, ConfigBean.class);
+        }finally {
+            if (fis != null)
+                fis.close();
+        }
+        return (ConcurrentHashMap) parsed.getServices();
+    }
+
     private void saintyCheckMemVcoreLimit(RegisterApplicationMasterResponse response){
         int maxMem = response.getMaximumResourceCapability().getMemory();
         LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
@@ -215,24 +219,22 @@ public class DockerAppMaster {
         LOG.info("Max vcores capabililty of resources in this cluster " + maxVCores);
 
         // A resource ask cannot exceed the max.
-        if (containerMemory > maxMem) {
+        if (DorneConst.DOREN_YARN_CONTAINER_MEM > maxMem) {
             LOG.info("Container memory specified above max threshold of cluster."
-                    + " Using max value." + ", specified=" + containerMemory + ", max="
+                    + " Using max value." + ", specified=" + DorneConst.DOREN_YARN_CONTAINER_MEM + ", max="
                     + maxMem);
-            containerMemory = maxMem;
+            DorneConst.DOREN_YARN_CONTAINER_MEM = maxMem;
         }
 
-        if (containerCore > maxVCores) {
+        if (DorneConst.DOREN_YARN_CONTAINER_CORE > maxVCores) {
             LOG.info("Container virtual cores specified above max threshold of cluster."
-                    + " Using max value." + ", specified=" + containerCore + ", max="
+                    + " Using max value." + ", specified=" + DorneConst.DOREN_YARN_CONTAINER_CORE + ", max="
                     + maxVCores);
-            containerCore = maxVCores;
+            DorneConst.DOREN_YARN_CONTAINER_CORE = maxVCores;
         }
     }
 
     protected AMRMClient.ContainerRequest setupContainerAskForRM() {
-        // setup requirements for hosts
-        // using * as any host will do for the distributed shell app
         // set the priority for the request
         Priority pri = Records.newRecord(Priority.class);
         pri.setPriority(0);
@@ -240,8 +242,10 @@ public class DockerAppMaster {
         // Set up resource type requirements
         // For now, memory and CPU are supported so we set memory and cpu requirements
         Resource capability = Records.newRecord(Resource.class);
-        capability.setMemory(containerMemory);
-        capability.setVirtualCores(containerCore);
+
+        //TODO: setup yarn container memory and cpu from compose.yaml
+        capability.setMemory(DorneConst.DOREN_YARN_CONTAINER_MEM);
+        capability.setVirtualCores(DorneConst.DOREN_YARN_CONTAINER_CORE);
 
         AMRMClient.ContainerRequest request =
                 new AMRMClient.ContainerRequest(capability, null, null, pri);
@@ -347,8 +351,8 @@ public class DockerAppMaster {
         return numFailedContainers;
     }
 
-    public String getContainerCmdArgs(){
-        return containerCmdArgs;
+    public ConcurrentHashMap<String, ServiceBean> getComposeConfig(){
+        return composeConfig;
     }
 
     public void setDone(boolean done){this.done = done;}
