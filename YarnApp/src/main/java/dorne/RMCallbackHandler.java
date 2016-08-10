@@ -25,8 +25,7 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
 
     @Override
     public void onContainersCompleted(List<ContainerStatus> completedContainers) {
-        // TODO:
-        // remove exist docker container
+        // TODO: remove exist docker container
         LOG.info("Got response from RM for container ask, completedCnt="
                 + completedContainers.size());
         for (ContainerStatus containerStatus : completedContainers) {
@@ -99,16 +98,24 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                     + allocatedContainer.getResource().getMemory()
                     + ", containerResourceVirtualCores"
                     + allocatedContainer.getResource().getVirtualCores());
-            LOG.info(dockerAppMaster.getComposeConfig().size());
 
-            String key = dockerAppMaster.getComposeConfig().keySet().iterator().next();
-            ServiceBean service = dockerAppMaster.getComposeConfig().remove(key);
+            String name = dockerAppMaster.getSortedServiceName().remove(0);
+            ServiceBean service = dockerAppMaster.getComposeConfig().get(name);
+
             // launch and start the container on a separate thread to keep the main thread unblocked
             ContainerLauncher runnableLaunchContainer =
                     new APILauncher(allocatedContainer, service, dockerAppMaster);
             Thread launchThread = new Thread(runnableLaunchContainer);
             dockerAppMaster.launchThreads.add(launchThread);
             launchThread.start();
+
+            try {
+                // Start services in dependency order, and sleep for a while before start next.
+                // Latter service will not wait for former be ¡§ready¡¨ before starting
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
             // About extra containers being allocated.
             // http://mapreduce-user.hadoop.apache.narkive.com/UKO7MiTd/about-extra-containers-being-allocated-in-distributed-shell-example

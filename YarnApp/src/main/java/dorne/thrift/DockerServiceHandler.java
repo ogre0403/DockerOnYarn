@@ -4,6 +4,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
+import dorne.DorneConst;
 import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
@@ -52,7 +53,7 @@ public class DockerServiceHandler implements DockerService.Iface {
             Pair<String, String> element = queue.poll();
 
             DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
-                    .withDockerHost("tcp://" + element.getValue() +":2375")
+                    .withDockerHost("tcp://" + element.getValue() + ":" + DorneConst.DOREN_DOCKERHOST_PORT)
                     .build();
             DockerClient docker = DockerClientBuilder.getInstance(config).build();
             docker.stopContainerCmd(element.getKey()).exec();

@@ -96,6 +96,7 @@ public class DockerAppMaster {
     protected LinkedBlockingQueue<Pair<String,String>> dockerContainerList = new LinkedBlockingQueue<>();
 
     private ConcurrentHashMap<String, ServiceBean> composeConfig ;
+    private List<String> sortedServiceName;
 
     public DockerAppMaster() {
         // Set up the configuration
@@ -127,9 +128,9 @@ public class DockerAppMaster {
         }
     }
 
-    public boolean init(String[] args) throws ParseException, TTransportException, IOException {
+    public boolean init(String[] args) throws Exception {
         composeConfig = parseComposeYAML(DorneConst.DOREN_LOCALRESOURCE_YAML);
-
+        sortedServiceName = Util.sortServices(composeConfig);
         // read container number
         numberContainer = composeConfig.size();
 
@@ -192,7 +193,7 @@ public class DockerAppMaster {
         numRequestedContainers.set(numTotalContainersToRequest);
     }
 
-    private ConcurrentHashMap<String, ServiceBean> parseComposeYAML(String file) throws IOException {
+    private  ConcurrentHashMap<String, ServiceBean> parseComposeYAML(String file) throws IOException {
         FileInputStream fis = null;
         ConfigBean parsed;
         try {
@@ -212,6 +213,7 @@ public class DockerAppMaster {
     }
 
     private void saintyCheckMemVcoreLimit(RegisterApplicationMasterResponse response){
+
         int maxMem = response.getMaximumResourceCapability().getMemory();
         LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
@@ -353,6 +355,10 @@ public class DockerAppMaster {
 
     public ConcurrentHashMap<String, ServiceBean> getComposeConfig(){
         return composeConfig;
+    }
+
+    public List<String> getSortedServiceName(){
+        return sortedServiceName;
     }
 
     public void setDone(boolean done){this.done = done;}

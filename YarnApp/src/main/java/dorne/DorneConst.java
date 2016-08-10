@@ -21,7 +21,7 @@ public class DorneConst {
 
     static public  int DOREN_YARN_CONTAINER_CORE = 1;
 
-    static public  int DOREN_YARN_CONTAINER_MEM = 4096;
+    static public  int DOREN_YARN_CONTAINER_MEM = 1024;
 
     /*
     // docker container num/mem/core

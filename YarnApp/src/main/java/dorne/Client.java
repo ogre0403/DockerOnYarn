@@ -265,7 +265,6 @@ public class Client {
         if (!containerType.isEmpty()) {
             InputStream is;
 
-            //TODO: need to do for each dockerized service type
             switch (containerType) {
                 case "ping":
                     is = getClass().getResourceAsStream("/demo/ping.sh");

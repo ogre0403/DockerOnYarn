@@ -1,0 +1,18 @@
+version: '2'
+
+services:
+  zookeeper:
+    image: jplock/zookeeper
+    ports:
+       - "2181:2181"
+       - "2888:2888"
+       - "3888:3888"
+
+  nginx1:
+    image: nginx
+    memory: 4g
+
+
+  ping1:
+    image: ubuntu
+    command: ping -c 10 8.8.8.8

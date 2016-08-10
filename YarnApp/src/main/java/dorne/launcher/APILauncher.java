@@ -4,6 +4,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.RestartPolicy;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
@@ -92,6 +93,18 @@ public class APILauncher extends ContainerLauncher {
         // setup container memory limit
         if(service.getMemory() != null)
             cmd.withMemory(service.getMemoryInByte());
+
+        // setup container DNS
+        if(service.getDns() != null)
+            cmd.withDns(service.getDns());
+
+        // setup container Environment variable
+        if(service.getEnvironment()!=null)
+            cmd.withEnv(service.getEnvironment());
+
+        // setup container name
+        if(service.getContainer_name() != null)
+            cmd.withName(service.getContainer_name());
 
         // TODO: setup other docker container properties from ServiceBean
 

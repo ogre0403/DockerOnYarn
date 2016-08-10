@@ -1,5 +1,7 @@
 package dorne.bean;
 
+import dorne.DorneConst;
+
 import java.util.List;
 
 public class ServiceBean {
@@ -14,9 +16,16 @@ public class ServiceBean {
     private String image;
     private String command;
     private List<String> ports;
+    private String container_name;
+    private String hostname;
+    private List<String> environment;
+    private List<String> dns;
+    private List<String> depends_on;
 
-    // default container memory is 4GB = 4096 MB
-    private String memory = "4g";
+    // default container memory is 1024 MB = 1GB
+    private String memory = DorneConst.DOREN_YARN_CONTAINER_MEM+"m";
+
+    public ServiceBean(){}
 
     public void setMemory(String memory) {
         this.memory = memory;
@@ -25,8 +34,6 @@ public class ServiceBean {
     public String getMemory() {
         return memory;
     }
-
-    public ServiceBean(){}
 
     public String getImage() {
         return image;
@@ -52,10 +59,50 @@ public class ServiceBean {
         this.command = command;
     }
 
+    public List<String> getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(List<String> environment) {
+        this.environment = environment;
+    }
+
+    public List<String> getDns() {
+        return dns;
+    }
+
+    public void setDns(List<String> dns) {
+        this.dns = dns;
+    }
+
+    public List<String> getDepends_on() {
+        return depends_on;
+    }
+
+    public void setDepends_on(List<String> depends_on) {
+        this.depends_on = depends_on;
+    }
+
+    public String getContainer_name() {
+        return container_name;
+    }
+
+    public void setContainer_name(String container_name) {
+        this.container_name = container_name;
+    }
+
+    public String getHostname() {
+        return hostname;
+    }
+
+    public void setHostname(String hostname) {
+        this.hostname = hostname;
+    }
+
     /*
-    * Based on the memory limit unit, return the memory limit in byte.
-    * This limit must be larger than 4MB. (Docker constraint)
-    * */
+        * Based on the memory limit unit, return the memory limit in byte.
+        * This limit must be larger than 4MB. (Docker constraint)
+        * */
     public Long getMemoryInByte() {
         String unit = memory.substring(memory.length() - 1);
         long memInByte ;
@@ -81,5 +128,18 @@ public class ServiceBean {
                 memInByte = memInByte * b;
         }
         return (memInByte < minMem) ? minMem : memInByte;
+    }
+
+    /**
+     * Iterate the environment list to find environment value by key.
+     * Time complexity is O(n).
+     */
+    public String getEnvByKey(String envKey){
+        for(String env: environment){
+            String[] kv = env.split("=");
+            if (kv[0].equals(envKey))
+                return kv[1];
+        }
+        return null;
     }
 }

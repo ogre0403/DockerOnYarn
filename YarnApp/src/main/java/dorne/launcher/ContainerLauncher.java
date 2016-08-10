@@ -45,11 +45,7 @@ public abstract class ContainerLauncher implements Runnable{
         process(ctx);
     }
 
-    // TODO: Docker API approach
-    // 0. shell cmd : CLILauncher
-    // 1. execute docker-java api in AM : APILauncher
+    // Type 1: shell cmd : CLILauncher
+    // Type 2" execute docker-java api in AM : APILauncher
     public abstract void process(ContainerLaunchContext ctx);
-
-//    public abstract String buildContainerCmd();
-
 }

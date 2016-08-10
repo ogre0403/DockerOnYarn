@@ -1,0 +1,59 @@
+version: '2'
+
+services:
+  zookeeper_1:
+    image: ogre/zookeeper:3.4.8
+    container_name: zookeeper
+    hostname: zookeeper
+    dns:
+      - 192.168.33.20
+    environment:
+      - "SERVICE_NAME=zk"
+
+
+  nimbus_1:
+    image: ogre/storm-docker:1.0.1
+    memory: 512m
+    container_name: nimbus
+    hostname: nimbus
+    depends_on:
+      - zookeeper_1
+    dns:
+      - 192.168.33.20
+    environment:
+      - "SERVICE_NAME=nimbus"
+      - "NIMBUS_SERVICE_NAME=nimbus.service.consul"
+      - "ZK_SERVICE_NAME=zk.service.consul"
+    command: --daemon nimbus
+
+  ui_1:
+    image: ogre/storm-docker:1.0.1
+    memory: 512m
+    container_name: ui
+    hostname: ui
+    depends_on:
+      - zookeeper_1
+      - nimbus_1
+    dns:
+      - 192.168.33.20
+    environment:
+      - "SERVICE_NAME=ui"
+      - "NIMBUS_SERVICE_NAME=nimbus.service.consul"
+      - "ZK_SERVICE_NAME=zk.service.consul"
+    command: --daemon ui
+
+  supervisor_1:
+    image: ogre/storm-docker:1.0.1
+    memory: 512m
+    container_name: supervisor
+    hostname: supervisor
+    depends_on:
+      - zookeeper_1
+      - nimbus_1
+    dns:
+      - 192.168.33.20
+    environment:
+     - "SERVICE_NAME=supervisor"
+     - "NIMBUS_SERVICE_NAME=nimbus.service.consul"
+     - "ZK_SERVICE_NAME=zk.service.consul"
+    command: --daemon supervisor
