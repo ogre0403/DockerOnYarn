@@ -13,6 +13,6 @@
  
  ```
  $ hadoop jar dorne-1.0-SNAPSHOT.jar dorne.thrift.ThriftClient \ 
-   <AM_HOST> <AM_PORT> <NUM_CONTAINER>
+   --server <host> --port <port>
  ```
  

@@ -3,13 +3,8 @@ package dorne;
 import dorne.bean.ConfigBean;
 import dorne.bean.ServiceBean;
 import dorne.thrift.ThriftServer;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.ExitUtil;
@@ -25,7 +20,6 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.log4j.LogManager;
-import org.apache.thrift.transport.TTransportException;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
@@ -93,9 +87,15 @@ public class DockerAppMaster {
     protected ThriftServer thriftServer;
 
     // Keeping <dockerContainerID, Host>, docker container on which host
-    protected LinkedBlockingQueue<Pair<String,String>> dockerContainerList = new LinkedBlockingQueue<>();
+    private ConcurrentHashMap<String,String> dockerContainerMap = new ConcurrentHashMap<>();
 
+    // <ServiceName, dockerContainerID>, Mapping between service name in yaml file and dockerContainerID
+    private ConcurrentHashMap<String,String> serviceContainerMap = new ConcurrentHashMap<>();
+
+    // Mapping between service name and service configuration from yaml file.
     private ConcurrentHashMap<String, ServiceBean> composeConfig ;
+
+    // service name will removed after being launched
     private List<String> sortedServiceName;
 
     public DockerAppMaster() {
@@ -323,14 +323,14 @@ public class DockerAppMaster {
         return  requestList;
     }
 
-    public LinkedBlockingQueue getContainerList(){return dockerContainerList;}
+//    public LinkedBlockingQueue getContainerList(){return dockerContainerMap;}
 
     public NMCallbackHandler getContainerListener(){
         return containerListener;
     }
 
-    public LinkedBlockingQueue<Pair<String,String>> getDockerContainerList(){
-        return dockerContainerList;
+    public ConcurrentHashMap getDockerContainerMap(){
+        return dockerContainerMap;
     }
 
     public Map<String, String> getEnvs(){
@@ -359,6 +359,10 @@ public class DockerAppMaster {
 
     public List<String> getSortedServiceName(){
         return sortedServiceName;
+    }
+
+    public ConcurrentHashMap<String, String> getServiceContainerMap() {
+        return serviceContainerMap;
     }
 
     public void setDone(boolean done){this.done = done;}

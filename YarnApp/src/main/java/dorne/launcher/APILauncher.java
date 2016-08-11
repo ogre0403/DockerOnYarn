@@ -4,7 +4,6 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.model.RestartPolicy;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
@@ -12,7 +11,6 @@ import dorne.DorneConst;
 import dorne.bean.ServiceBean;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.yarn.api.records.*;
 
 import java.util.*;
@@ -33,7 +31,10 @@ public class APILauncher extends ContainerLauncher {
     String dockerContainerID;
     ServiceBean service;
 
-    public APILauncher(Container yarnContainer, ServiceBean service ,DockerAppMaster dockerAppMaster){
+    String serviceName;
+
+    public APILauncher(Container yarnContainer, String name ,DockerAppMaster dockerAppMaster){
+        //TODO: check docker name is already exist
         super(yarnContainer, dockerAppMaster);
         this.yarnContainerHost = yarnContainer.getNodeId().getHost();
 
@@ -43,7 +44,8 @@ public class APILauncher extends ContainerLauncher {
                 .build();
         this.docker = DockerClientBuilder.getInstance(config).build();
 
-        this.service = service;
+        this.serviceName = name;
+        this.service = dockerAppMaster.getComposeConfig().get(name);
     }
 
     @Override
@@ -53,12 +55,11 @@ public class APILauncher extends ContainerLauncher {
         this.dockerContainerID = dockerContainer.getId();
         docker.startContainerCmd(this.dockerContainerID).exec();
 
-        try {
-            dockerAppMaster.getDockerContainerList().put(
-                    new Pair<>(this.dockerContainerID, this.yarnContainerHost));
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        dockerAppMaster.getDockerContainerMap().put(
+                this.dockerContainerID, this.yarnContainerHost);
+
+        dockerAppMaster.getServiceContainerMap().put(
+                this.serviceName, this.dockerContainerID);
 
 
         // Because YARN create processes on nodemanager by shell command eventually,

@@ -99,12 +99,12 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                     + ", containerResourceVirtualCores"
                     + allocatedContainer.getResource().getVirtualCores());
 
-            String name = dockerAppMaster.getSortedServiceName().remove(0);
-            ServiceBean service = dockerAppMaster.getComposeConfig().get(name);
+            String serviceName = dockerAppMaster.getSortedServiceName().remove(0);
+//            ServiceBean service = dockerAppMaster.getComposeConfig().get(name);
 
             // launch and start the container on a separate thread to keep the main thread unblocked
             ContainerLauncher runnableLaunchContainer =
-                    new APILauncher(allocatedContainer, service, dockerAppMaster);
+                    new APILauncher(allocatedContainer, serviceName, dockerAppMaster);
             Thread launchThread = new Thread(runnableLaunchContainer);
             dockerAppMaster.launchThreads.add(launchThread);
             launchThread.start();

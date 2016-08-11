@@ -12,6 +12,7 @@ import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class ThriftClient {
@@ -23,7 +24,7 @@ public class ThriftClient {
     // Command line options
     private Options opts;
     private String op;
-    private int num;
+    private String service;
 
     public ThriftClient(String[] args) throws TTransportException {
         opts = Util.ThriftClientOption();
@@ -52,12 +53,12 @@ public class ThriftClient {
         this.op = cliParser.getOptionValue("operation", "show");
 
         if(op.equals("add") || op.equals("remove")){
-            if (!cliParser.hasOption("num")){
-                throw new IllegalArgumentException("No container num for client to initialize");
+            if (!cliParser.hasOption("service")){
+                throw new IllegalArgumentException("No service for client to initialize");
             }
-            this.num = Integer.parseInt(cliParser.getOptionValue("num"));
+            this.service = cliParser.getOptionValue("service");
         }
-        createConn(server,port);
+        createConn(server, port);
     }
 
     private void createConn(String server, int port) throws TTransportException {
@@ -76,34 +77,46 @@ public class ThriftClient {
     private void do_work() throws TException {
         switch (op) {
             case "add":
-                add(this.num);
+                add("");
                 break;
             case "remove":
-                remove(this.num);
+                remove(this.service);
                 break;
             case "show":
                 show();
+                break;
+            case "shutdown":
+                shutdown();
                 break;
             default:
                 show();
         }
     }
 
-    private void add(int n) throws TException {
-        client.addContainer(n);
+    private void add(String scale) throws TException {
+        //TODO: split scale string
+        client.scaleService("", 0);
     }
 
     private void show() throws TException {
-        Map<String, String> kv = client.showContainer();
-        Iterator iter = kv.entrySet().iterator();
-        while (iter.hasNext()) {
-            Map.Entry<String,String> entry = (Map.Entry) iter.next();
-            LOG.info(entry.getKey().substring(0,10) + "@" + entry.getValue());
+        List<String> result = client.showServices();
+        for(String S: result){
+            LOG.info(S);
         }
     }
 
-    private void remove(int n) throws TException {
-        client.delContainer(n);
+    private void remove(String service) throws TException {
+        client.removeService(service);
+    }
+
+    private void shutdown() throws TException {
+        List<String> result = client.showServices();
+        for(String s: result){
+            // result format is nimbus_1//dreamy_mestorf@slave1:192.168.33.170
+            String name = s.split("/")[0];
+            LOG.info("Stop " + name +"...");
+            remove(name);
+        }
     }
 
     public void close(){

@@ -47,8 +47,8 @@ public class Util {
         Options opts = new Options();
         opts.addOption("server", true, "thrift server IP");
         opts.addOption("port", true, "thrift server port");
-        opts.addOption("operation", true, "add/remove/show");
-        opts.addOption("num", true, "number of containers to add/remove");
+        opts.addOption("operation", true, "add/remove/show/shutdown");
+        opts.addOption("service", true, "service name");
         return opts;
     }
 
