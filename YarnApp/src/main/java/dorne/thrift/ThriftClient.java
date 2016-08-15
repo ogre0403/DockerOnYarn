@@ -11,9 +11,7 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 public class ThriftClient {
     private static final Log LOG = LogFactory.getLog(ThriftClient.class);
@@ -52,9 +50,9 @@ public class ThriftClient {
 
         this.op = cliParser.getOptionValue("operation", "show");
 
-        if(op.equals("add") || op.equals("remove")){
+        if(op.equals("remove") || op.equals("scale")){
             if (!cliParser.hasOption("service")){
-                throw new IllegalArgumentException("No service for client to initialize");
+                throw new IllegalArgumentException("No service for client to scale or remove");
             }
             this.service = cliParser.getOptionValue("service");
         }
@@ -76,8 +74,8 @@ public class ThriftClient {
 
     private void do_work() throws TException {
         switch (op) {
-            case "add":
-                add("");
+            case "scale":
+                scale(this.service);
                 break;
             case "remove":
                 remove(this.service);
@@ -93,9 +91,9 @@ public class ThriftClient {
         }
     }
 
-    private void add(String scale) throws TException {
-        //TODO: split scale string
-        client.scaleService("", 0);
+    private void scale(String scale) throws TException {
+        String[] tmp = scale.split("=");
+        client.scaleService(tmp[0], Integer.parseInt(tmp[1]));
     }
 
     private void show() throws TException {
@@ -106,13 +104,14 @@ public class ThriftClient {
     }
 
     private void remove(String service) throws TException {
-        client.removeService(service);
+        String[] tmp = service.split("=");
+        client.removeService(tmp[0]);
     }
 
     private void shutdown() throws TException {
         List<String> result = client.showServices();
         for(String s: result){
-            // result format is nimbus_1//dreamy_mestorf@slave1:192.168.33.170
+            // result format is nimbus_1/dreamy_mestorf@slave1:192.168.33.170
             String name = s.split("/")[0];
             LOG.info("Stop " + name +"...");
             remove(name);

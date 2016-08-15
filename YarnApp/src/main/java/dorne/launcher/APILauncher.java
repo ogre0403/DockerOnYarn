@@ -101,10 +101,10 @@ public class APILauncher extends ContainerLauncher {
 
         // setup container Environment variable
         if(service.getEnvironment()!=null)
-            cmd.withEnv(service.getEnvironment());
+            cmd.withEnv(service.getEnvironmentList());
 
         // setup container name
-        if(service.getContainer_name() != null)
+        if(service.getContainer_name() != null && !service.getContainer_name().isEmpty())
             cmd.withName(service.getContainer_name());
 
         // TODO: setup other docker container properties from ServiceBean
@@ -126,16 +126,5 @@ public class APILauncher extends ContainerLauncher {
             command.append(str).append(" ");
         }
         return command.toString();
-    }
-
-    private boolean isDockerContainerRunning(DockerClient docker, String containerID){
-        InspectContainerResponse ir;
-        try {
-            ir = docker.inspectContainerCmd(containerID).exec();
-        }catch (Exception e){
-            LOG.warn("Docker container with ID { " + dockerContainerID + " } is not found...");
-            return false;
-        }
-        return ir.getState().getRunning();
     }
 }

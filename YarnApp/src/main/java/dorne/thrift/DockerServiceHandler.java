@@ -19,11 +19,7 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Created by 1403035 on 2016/6/4.
- */
 public class DockerServiceHandler implements DockerService.Iface {
     private static final Log LOG = LogFactory.getLog(DockerServiceHandler.class);
 
@@ -33,11 +29,54 @@ public class DockerServiceHandler implements DockerService.Iface {
         this.dockerAppMaster = am;
     }
 
+    /**
+     * Add n services which identifies by name
+     */
     @Override
     public void scaleService(String name, int n) throws TException {
+        List<String> serviceNames = dockerAppMaster.getSortedServiceName();
+        Map<String, ServiceBean> beans = dockerAppMaster.getComposeConfig();
+        ServiceBean cloneBean;
+        try {
+            for (int i = 0; i < n; i++) {
+                cloneBean = (ServiceBean) beans.get(name).clone();
+                long epoch = System.currentTimeMillis() / 1000;
 
+                // avoid DNS naming conflict, append timestamp to original service name
+                String extendName = name + "-" + epoch;
+                resloveNamingConflict(cloneBean, extendName);
+
+                serviceNames.add(extendName);
+                beans.put(extendName, cloneBean);
+
+                AMRMClient.ContainerRequest request = setupContainerAskForRM();
+                dockerAppMaster.getRMClientAsync().addContainerRequest(request);
+                dockerAppMaster.getRequestList().put(request);
+
+                // Make sure extendName is different
+                Thread.sleep(1000);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
+    /**
+     * Avoid naming conflict, remove container name inside clone service bean,
+     * and replace SERVICE_NAME with name appended with timestamp
+     */
+    private void resloveNamingConflict(ServiceBean bean, String extendName){
+        // remove container_name
+        if(bean.getContainer_name() != null)
+            bean.setContainer_name("");
+
+        // replace environment SERVICE_NAME=<extendName>
+        bean.getEnvironment().put("SERVICE_NAME", extendName);
+    }
+
+    /**
+     * Remove a service by name
+     */
     @Override
     public void removeService(String name) throws TException {
         Map<String, String> nameDockerIDMap = dockerAppMaster.getServiceContainerMap();
@@ -68,6 +107,10 @@ public class DockerServiceHandler implements DockerService.Iface {
         }
     }
 
+    /*
+     * Return a list of all running docker container information.
+     * Each String format ServiceName/ContainerName@HOST:containerIP
+     */
     @Override
     public List<String> showServices() throws TException {
         // use to iterate service name
@@ -76,12 +119,7 @@ public class DockerServiceHandler implements DockerService.Iface {
         // use to find container location by docker ID
         Map<String, String> dockerHostMap = dockerAppMaster.getDockerContainerMap();
 
-        // use to get bean by service name
-        ConcurrentHashMap<String, ServiceBean> serviceBeans = dockerAppMaster.getComposeConfig();
-
         List<String> infoList = new LinkedList<>();
-
-
         for(Map.Entry<String, String> e: nameDockerIDMap.entrySet()){
             String name = e.getKey();
             String dockerID = e.getValue();
@@ -92,6 +130,11 @@ public class DockerServiceHandler implements DockerService.Iface {
         return infoList;
     }
 
+    /**
+     * Use Docker inspect java api to find container name and internal IP.
+     * First element of return array is container.
+     * Second element of return array is internal IP.
+     */
     private String[] getDockerIPAddressAndName(String host, String conID)  {
         DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost("tcp://" + host + ":" + DorneConst.DOREN_DOCKERHOST_PORT)
@@ -127,20 +170,4 @@ public class DockerServiceHandler implements DockerService.Iface {
                 new AMRMClient.ContainerRequest(capability, null, null, pri);
         return request;
     }
-
-    private void addContainer(int n) throws TException {
-
-        try {
-
-            for(int i=0;i<n;i++) {
-                AMRMClient.ContainerRequest request = setupContainerAskForRM();
-                dockerAppMaster.getRMClientAsync().addContainerRequest(request);
-                dockerAppMaster.getRequestList().put(request);
-            }
-
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
 }

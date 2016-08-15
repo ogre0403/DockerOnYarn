@@ -2,9 +2,12 @@ package dorne.bean;
 
 import dorne.DorneConst;
 
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
-public class ServiceBean {
+public class ServiceBean implements  Cloneable{
 
     private static final long b = 1;
     private static final long k = 1024;
@@ -15,15 +18,15 @@ public class ServiceBean {
 
     private String image;
     private String command;
-    private List<String> ports;
     private String container_name;
     private String hostname;
-    private List<String> environment;
-    private List<String> dns;
-    private List<String> depends_on;
-
     // default container memory is 1024 MB = 1GB
     private String memory = DorneConst.DOREN_YARN_CONTAINER_MEM+"m";
+
+    private List<String> ports;
+    private List<String> dns;
+    private List<String> depends_on;
+    private Map<String, String> environment;
 
     public ServiceBean(){}
 
@@ -59,11 +62,11 @@ public class ServiceBean {
         this.command = command;
     }
 
-    public List<String> getEnvironment() {
+    public Map<String, String> getEnvironment() {
         return environment;
     }
 
-    public void setEnvironment(List<String> environment) {
+    public void setEnvironment(Map<String,String> environment) {
         this.environment = environment;
     }
 
@@ -99,6 +102,39 @@ public class ServiceBean {
         this.hostname = hostname;
     }
 
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        ServiceBean clone = (ServiceBean) super.clone();
+        List clonelist = new LinkedList();
+
+        // deep clone depends_on list
+        if(this.depends_on != null ) {
+            clonelist.addAll(this.depends_on);
+            clone.setDepends_on(clonelist);
+        }
+
+        // deep clone dns list
+        if(this.dns != null) {
+            clonelist = new LinkedList();
+            clonelist.addAll(this.dns);
+            clone.setDns(clonelist);
+        }
+
+        // deep clone environment Map
+        if(this.environment !=null) {
+            Map<String, String> clonemap = new HashMap<>();
+            clonemap.putAll(environment);
+            clone.setEnvironment(clonemap);
+        }
+        // deep clone ports list
+        if(this.ports !=null) {
+            clonelist = new LinkedList();
+            clonelist.addAll(this.ports);
+            clone.setPorts(clonelist);
+        }
+        return clone;
+    }
+
     /*
         * Based on the memory limit unit, return the memory limit in byte.
         * This limit must be larger than 4MB. (Docker constraint)
@@ -130,16 +166,16 @@ public class ServiceBean {
         return (memInByte < minMem) ? minMem : memInByte;
     }
 
-    /**
-     * Iterate the environment list to find environment value by key.
-     * Time complexity is O(n).
-     */
-    public String getEnvByKey(String envKey){
-        for(String env: environment){
-            String[] kv = env.split("=");
-            if (kv[0].equals(envKey))
-                return kv[1];
+    public List<String> getEnvironmentList() {
+        List<String> result = new LinkedList<>();
+        StringBuilder sb = new StringBuilder();
+        if(this.environment !=null){
+            for(Map.Entry entry: environment.entrySet()){
+                sb.append(entry.getKey()).append("=").append(entry.getValue());
+                result.add(sb.toString());
+                sb.setLength(0);
+            }
         }
-        return null;
+        return result;
     }
 }

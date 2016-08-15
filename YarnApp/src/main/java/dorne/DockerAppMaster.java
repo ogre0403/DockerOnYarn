@@ -45,6 +45,7 @@ public class DockerAppMaster {
 
     private volatile boolean done;
 
+    // TODO: replace with numRequestedContainers
     protected int numberContainer ;
 
     // Hostname of the am container
@@ -258,7 +259,7 @@ public class DockerAppMaster {
     protected boolean finish() throws IOException, YarnException {
 
         // wait for completion.
-        while (!done && (numCompletedContainers.get() != numberContainer)) {
+        while (!done && (numCompletedContainers.get() != numRequestedContainers.get())) {
             try {
                 Thread.sleep(200);
             } catch (InterruptedException ex) {}
@@ -287,11 +288,11 @@ public class DockerAppMaster {
         FinalApplicationStatus appStatus;
         String appMessage = null;
         boolean success = true;
-        if (numCompletedContainers.get() - numFailedContainers.get() >= numberContainer) {
+        if (numCompletedContainers.get() - numFailedContainers.get() >= numRequestedContainers.get()) {
             appStatus = FinalApplicationStatus.SUCCEEDED;
         } else {
             appStatus = FinalApplicationStatus.FAILED;
-            appMessage = "Diagnostics." + ", total=" + numberContainer
+            appMessage = "Diagnostics." + ", total=" + numRequestedContainers.get()
                     + ", completed=" + numCompletedContainers.get() + ", allocated="
                     + numAllocatedContainers.get() + ", failed="
                     + numFailedContainers.get();
@@ -322,8 +323,6 @@ public class DockerAppMaster {
     public LinkedBlockingQueue getRequestList(){
         return  requestList;
     }
-
-//    public LinkedBlockingQueue getContainerList(){return dockerContainerMap;}
 
     public NMCallbackHandler getContainerListener(){
         return containerListener;

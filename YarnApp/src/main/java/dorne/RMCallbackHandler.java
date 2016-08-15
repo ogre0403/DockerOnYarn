@@ -65,6 +65,7 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
         }
 
         // ask for more containers if any failed
+        /*
         int askCount = dockerAppMaster.numberContainer - dockerAppMaster.getNumRequestedContainers().get();
         dockerAppMaster.getNumRequestedContainers().addAndGet(askCount);
 
@@ -74,9 +75,11 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                 dockerAppMaster.getRMClientAsync().addContainerRequest(containerAsk);
             }
         }
+        */
 
         LOG.info("completed container num : " + dockerAppMaster.getNumCompletedContainers().get());
-        if (dockerAppMaster.getNumCompletedContainers().get() == dockerAppMaster.numberContainer) {
+        if (dockerAppMaster.getNumCompletedContainers().get() ==
+                dockerAppMaster.getNumRequestedContainers().get()) {
             dockerAppMaster.setDone(true);
         }
     }
@@ -87,6 +90,10 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
         LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
 
         for (Container allocatedContainer : allocatedContainers) {
+
+            if (dockerAppMaster.getSortedServiceName().size() == 0)
+                continue;
+
             dockerAppMaster.getNumAllocatedContainers().getAndIncrement();
 
             LOG.info("Launching shell command on a new container."
@@ -100,7 +107,6 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
                     + allocatedContainer.getResource().getVirtualCores());
 
             String serviceName = dockerAppMaster.getSortedServiceName().remove(0);
-//            ServiceBean service = dockerAppMaster.getComposeConfig().get(name);
 
             // launch and start the container on a separate thread to keep the main thread unblocked
             ContainerLauncher runnableLaunchContainer =

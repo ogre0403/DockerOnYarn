@@ -16,3 +16,13 @@
    --server <host> --port <port>
  ```
  
+ ```
+ $ hadoop jar dorne-1.0-SNAPSHOT.jar dorne.thrift.ThriftClient 
+   --server <host> --port <port> \ 
+   --operation <scale|show|remove|shutdown> [--service <service>=<number>]
+ ```
+ 
+ ```
+ $ hadoop jar dorne-1.0-SNAPSHOT.jar dorne.thrift.ThriftClient --server slave2 --port 44061 --operation shutdown
+ ```
+ 
