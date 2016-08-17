@@ -1,19 +1,14 @@
 package dorne;
 
-import dorne.bean.ServiceBean;
 import dorne.launcher.APILauncher;
 import dorne.launcher.ContainerLauncher;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.*;
-import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 
 import java.util.List;
 
-/**
- * Created by 1403035 on 2016/5/13.
- */
 public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
 
     private static final Log LOG = LogFactory.getLog(RMCallbackHandler.class);
@@ -151,10 +146,9 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
     public float getProgress() {
         // set progress to deliver to RM on next heartbeat
         int allocated = dockerAppMaster.getNumAllocatedContainers().get();
-        int total = dockerAppMaster.numberContainer;
+        int total = dockerAppMaster.getNumRequestedContainers().get();
         int complete = dockerAppMaster.getNumCompletedContainers().get();
-        float progress =((float) (allocated + complete) )/ ( (float) (total * 2) ) ;
-        return progress;
+        return total == 0? 0:((float) (allocated + complete) )/ ( (float) (total * 2) );
     }
 
     @Override

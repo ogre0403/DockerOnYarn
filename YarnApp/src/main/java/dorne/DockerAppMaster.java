@@ -44,9 +44,6 @@ public class DockerAppMaster {
 
     private volatile boolean done;
 
-    // TODO: replace with numRequestedContainers
-    protected int numberContainer ;
-
     // Hostname of the am container
     private String appMasterHostname = "";
 
@@ -147,8 +144,6 @@ public class DockerAppMaster {
         }
 
         sortedServiceName = Util.sortServices(composeConfig);
-        // read container number
-        numberContainer = composeConfig.size();
 
         envs = System.getenv();
 
@@ -196,7 +191,7 @@ public class DockerAppMaster {
         numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
 
         int numTotalContainersToRequest =
-                numberContainer - previousAMRunningContainers.size();
+                composeConfig.size() - previousAMRunningContainers.size();
 
         Thread.sleep(5000);
 
@@ -307,10 +302,11 @@ public class DockerAppMaster {
             appStatus = FinalApplicationStatus.SUCCEEDED;
         } else {
             appStatus = FinalApplicationStatus.FAILED;
-            appMessage = "Diagnostics." + ", total=" + numRequestedContainers.get()
-                    + ", completed=" + numCompletedContainers.get() + ", allocated="
-                    + numAllocatedContainers.get() + ", failed="
-                    + numFailedContainers.get();
+            appMessage = "Diagnostics." +
+                    ", total=" + numRequestedContainers.get() +
+                    ", completed=" + numCompletedContainers.get() +
+                    ", allocated=" + numAllocatedContainers.get() +
+                    ", failed=" + numFailedContainers.get();
             LOG.info(appMessage);
             success = false;
         }
