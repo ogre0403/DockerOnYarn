@@ -7,13 +7,14 @@ import org.apache.commons.cli.Options;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by 1403035 on 2016/5/20.
  */
 public class Util {
     public static Options ClientOptions(){
-        Options opts = AMOptions();
+        Options opts = new Options();
         opts.addOption(DorneConst.DOREN_OPTS_APPNAME, true,
                 "Application Name. Default value - dorne");
         opts.addOption(DorneConst.DOREN_OPTS_YARN_AM_MEM, true,
@@ -29,6 +30,7 @@ public class Util {
 
     public static Options AMOptions(){
         Options opts = new Options();
+        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_APPID, true, "Application ID");
 //        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, true,
 //                "No. of containers on which the shell command needs to be executed");
 //        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, true,
@@ -63,6 +65,39 @@ public class Util {
                 socket.close();
         }
         return port;
+    }
+
+    /*
+     * Append YARN application id to DNS Service name
+     */
+    public static void prefixAppIdToServiceName(ConcurrentHashMap<String, ServiceBean> compose, String appid){
+        ServiceBean tmp;
+
+        for(String k : compose.keySet()){
+            tmp = compose.get(k);
+            String val = tmp.getEnvironment().get("SERVICE_NAME");
+            tmp.getEnvironment().put("SERVICE_NAME",appid+"-"+val);
+        }
+    }
+
+
+    /**
+     *
+     */
+    public static void ReplaceServiceNameVariable(ServiceBean bean, ConcurrentHashMap<String, ServiceBean> compose){
+        Map<String, String> env = bean.getEnvironment();
+        List<String> keys = new LinkedList<>();
+        for(String key: env.keySet()){
+            keys.add(key);
+        }
+
+        for(String k : keys){
+            if (k.endsWith("_SERVICE_NAME") && env.get(k).startsWith("$")){
+                String name = env.get(k).substring(1);
+                String result = compose.get(name).getEnvironment().get("SERVICE_NAME");
+                env.put(k,result+".service.consul");
+            }
+        }
     }
 
     /**

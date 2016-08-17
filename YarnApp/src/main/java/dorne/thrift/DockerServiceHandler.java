@@ -6,6 +6,7 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
 import dorne.DorneConst;
+import dorne.Util;
 import dorne.bean.ServiceBean;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DockerServiceHandler implements DockerService.Iface {
     private static final Log LOG = LogFactory.getLog(DockerServiceHandler.class);
@@ -43,8 +45,9 @@ public class DockerServiceHandler implements DockerService.Iface {
                 long epoch = System.currentTimeMillis() / 1000;
 
                 // avoid DNS naming conflict, append timestamp to original service name
-                String extendName = name + "-" + epoch;
+                String extendName = dockerAppMaster.getAppid() + "-" +name + "-" + epoch;
                 resloveNamingConflict(cloneBean, extendName);
+                Util.ReplaceServiceNameVariable(cloneBean, (ConcurrentHashMap)beans);
 
                 serviceNames.add(extendName);
                 beans.put(extendName, cloneBean);
@@ -52,6 +55,8 @@ public class DockerServiceHandler implements DockerService.Iface {
                 AMRMClient.ContainerRequest request = setupContainerAskForRM();
                 dockerAppMaster.getRMClientAsync().addContainerRequest(request);
                 dockerAppMaster.getRequestList().put(request);
+
+                dockerAppMaster.getNumRequestedContainers().incrementAndGet();
 
                 // Make sure extendName is different
                 Thread.sleep(1000);
@@ -83,10 +88,10 @@ public class DockerServiceHandler implements DockerService.Iface {
         Map<String, String> dockerHostMap = dockerAppMaster.getDockerContainerMap();
 
         if (nameDockerIDMap.containsKey(name)){
-            String dockerId = nameDockerIDMap.get(name);
+            String dockerId = nameDockerIDMap.remove(name);
 
             if(dockerHostMap.containsKey(dockerId)){
-                String host = dockerHostMap.get(dockerId);
+                String host = dockerHostMap.remove(dockerId);
 
                 DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
                         .withDockerHost("tcp://" + host + ":" + DorneConst.DOREN_DOCKERHOST_PORT)

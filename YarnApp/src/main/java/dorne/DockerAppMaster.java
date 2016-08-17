@@ -3,6 +3,8 @@ package dorne;
 import dorne.bean.ConfigBean;
 import dorne.bean.ServiceBean;
 import dorne.thrift.ThriftServer;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.GnuParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -33,9 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Created by 1403035 on 2016/5/12.
- */
 public class DockerAppMaster {
 
     private static final Log LOG = LogFactory.getLog(DockerAppMaster.class);
@@ -99,6 +98,9 @@ public class DockerAppMaster {
     // service name will removed after being launched
     private List<String> sortedServiceName;
 
+    // prefix of service name, use to avoid service name conflict in a yarn application
+    private String Appid;
+
     public DockerAppMaster() {
         // Set up the configuration
         conf = new YarnConfiguration();
@@ -130,7 +132,20 @@ public class DockerAppMaster {
     }
 
     public boolean init(String[] args) throws Exception {
+        CommandLine cliParser = new GnuParser().parse(Util.AMOptions(), args);
+        if (!cliParser.hasOption(DorneConst.DOREN_OPTS_DOCKER_APPID)) {
+            throw new IllegalArgumentException(
+                    "No application id specified");
+        }
+        this.Appid = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_APPID);
         composeConfig = parseComposeYAML(DorneConst.DOREN_LOCALRESOURCE_YAML);
+
+        Util.prefixAppIdToServiceName(composeConfig, this.Appid);
+
+        for(ServiceBean sb: composeConfig.values()){
+            Util.ReplaceServiceNameVariable(sb,composeConfig);
+        }
+
         sortedServiceName = Util.sortServices(composeConfig);
         // read container number
         numberContainer = composeConfig.size();
@@ -362,6 +377,10 @@ public class DockerAppMaster {
 
     public ConcurrentHashMap<String, String> getServiceContainerMap() {
         return serviceContainerMap;
+    }
+
+    public String getAppid(){
+        return this.Appid;
     }
 
     public void setDone(boolean done){this.done = done;}

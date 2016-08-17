@@ -91,9 +91,11 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
 
         for (Container allocatedContainer : allocatedContainers) {
 
-            if (dockerAppMaster.getSortedServiceName().size() == 0)
+            if (dockerAppMaster.getSortedServiceName().size() == 0) {
+                //TODO: maybe not work
+                dockerAppMaster.getRMClientAsync().releaseAssignedContainer(allocatedContainer.getId());
                 continue;
-
+            }
             dockerAppMaster.getNumAllocatedContainers().getAndIncrement();
 
             LOG.info("Launching shell command on a new container."

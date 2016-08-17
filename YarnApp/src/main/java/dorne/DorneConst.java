@@ -22,6 +22,7 @@ public class DorneConst {
     static public  int DOREN_YARN_CONTAINER_CORE = 1;
 
     static public  int DOREN_YARN_CONTAINER_MEM = 1024;
+    static public final String DOREN_OPTS_DOCKER_APPID = "appid";
 
     /*
     // docker container num/mem/core

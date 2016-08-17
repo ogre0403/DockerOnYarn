@@ -169,7 +169,7 @@ public class Client {
 
         // build command for AM
         List<String> commands = new ArrayList<String>();
-        commands.add(buildAMCommand());
+        commands.add(buildAMCommand(appId.getId()));
         amContainer.setCommands(commands);
 
         // setup appContext
@@ -337,7 +337,7 @@ public class Client {
     /*
     * Build AM launch command
     * */
-    private String buildAMCommand(){
+    private String buildAMCommand(int appid){
 
         // Set the necessary command to execute the application master
         Vector<CharSequence> vargs = new Vector<CharSequence>(30);
@@ -349,6 +349,8 @@ public class Client {
         vargs.add("-Xmx" + amMemory + "m");
         // Set class name
         vargs.add(appMasterMainClass);
+        vargs.add("--"+DorneConst.DOREN_OPTS_DOCKER_APPID);
+        vargs.add(appid+"");
         vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
         vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
 
