@@ -85,51 +85,53 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
         LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
 
         for (Container allocatedContainer : allocatedContainers) {
+            if (dockerAppMaster.getSortedServiceName().size() != 0) {
+                dockerAppMaster.getNumAllocatedContainers().getAndIncrement();
 
-            if (dockerAppMaster.getSortedServiceName().size() == 0) {
-                //TODO: maybe not work
-                dockerAppMaster.getRMClientAsync().releaseAssignedContainer(allocatedContainer.getId());
-                continue;
-            }
-            dockerAppMaster.getNumAllocatedContainers().getAndIncrement();
+                LOG.info("Launching shell command on a new container."
+                        + ", containerId=" + allocatedContainer.getId()
+                        + ", containerNode=" + allocatedContainer.getNodeId().getHost()
+                        + ":" + allocatedContainer.getNodeId().getPort()
+                        + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
+                        + ", containerResourceMemory"
+                        + allocatedContainer.getResource().getMemory()
+                        + ", containerResourceVirtualCores"
+                        + allocatedContainer.getResource().getVirtualCores());
 
-            LOG.info("Launching shell command on a new container."
-                    + ", containerId=" + allocatedContainer.getId()
-                    + ", containerNode=" + allocatedContainer.getNodeId().getHost()
-                    + ":" + allocatedContainer.getNodeId().getPort()
-                    + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
-                    + ", containerResourceMemory"
-                    + allocatedContainer.getResource().getMemory()
-                    + ", containerResourceVirtualCores"
-                    + allocatedContainer.getResource().getVirtualCores());
+                String serviceName = dockerAppMaster.getSortedServiceName().remove(0);
 
-            String serviceName = dockerAppMaster.getSortedServiceName().remove(0);
+                // launch and start the container on a separate thread to keep the main thread unblocked
+                ContainerLauncher runnableLaunchContainer =
+                        new APILauncher(allocatedContainer, serviceName, dockerAppMaster);
+                Thread launchThread = new Thread(runnableLaunchContainer);
+                dockerAppMaster.launchThreads.add(launchThread);
+                launchThread.start();
 
-            // launch and start the container on a separate thread to keep the main thread unblocked
-            ContainerLauncher runnableLaunchContainer =
-                    new APILauncher(allocatedContainer, serviceName, dockerAppMaster);
-            Thread launchThread = new Thread(runnableLaunchContainer);
-            dockerAppMaster.launchThreads.add(launchThread);
-            launchThread.start();
-
-            try {
-                // Start services in dependency order, and sleep for a while before start next.
-                // Latter service will not wait for former be ¡§ready¡¨ before starting
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            // About extra containers being allocated.
-            // http://mapreduce-user.hadoop.apache.narkive.com/UKO7MiTd/about-extra-containers-being-allocated-in-distributed-shell-example
-            // YARN-1902 , SPARK-2687, SLIDER-829, SLIDER-828
-            // After get allocated container, container request is remove manually
-            if(!dockerAppMaster.requestList.isEmpty()){
                 try {
-                    dockerAppMaster.getRMClientAsync().removeContainerRequest(dockerAppMaster.requestList.take());
+                    // Start services in dependency order, and sleep for a while before start next.
+                    // Latter service will not wait for former be ¡§ready¡¨ before starting
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+
+                // About extra containers being allocated.
+                // http://mapreduce-user.hadoop.apache.narkive.com/UKO7MiTd/about-extra-containers-being-allocated-in-distributed-shell-example
+                // YARN-1902 , SPARK-2687, SLIDER-829, SLIDER-828
+                // After get allocated container, container request is remove manually
+                if(!dockerAppMaster.requestList.isEmpty()){
+                    try {
+                        dockerAppMaster.getRMClientAsync().removeContainerRequest(dockerAppMaster.requestList.take());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }else{
+                // return excessive container
+                // Ref : https://github.com/apache/flink/blob/master/flink-yarn/src/main/java/org/apache/flink/yarn/YarnFlinkResourceManager.java
+                // Line 472 ~ 474 to release excessive container
+                LOG.info("Returning excess container " + allocatedContainer.getId());
+                dockerAppMaster.getRMClientAsync().releaseAssignedContainer(allocatedContainer.getId());
             }
         }
     }
