@@ -1,11 +1,14 @@
 package dorne.bean;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.api.model.VolumeBind;
 import dorne.DorneConst;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class ServiceBean implements  Cloneable{
 
@@ -22,11 +25,13 @@ public class ServiceBean implements  Cloneable{
     private String hostname;
     // default container memory is 1024 MB = 1GB
     private String memory = DorneConst.DOREN_YARN_CONTAINER_MEM+"m";
+    private String deploy_mode = "cluster";
 
     private List<String> ports;
     private List<String> dns;
     private List<String> depends_on;
     private Map<String, String> environment;
+    private List<String> volumes;
 
     public ServiceBean(){}
 
@@ -102,6 +107,22 @@ public class ServiceBean implements  Cloneable{
         this.hostname = hostname;
     }
 
+    public String getDeploy_mode() {
+        return deploy_mode;
+    }
+
+    public void setDeploy_mode(String deploy_mode) {
+        this.deploy_mode = deploy_mode;
+    }
+
+    public List<String> getVolumes() {
+        return volumes;
+    }
+
+    public void setVolumes(List<String> volumes) {
+        this.volumes = volumes;
+    }
+
     @Override
     public Object clone() throws CloneNotSupportedException {
         ServiceBean clone = (ServiceBean) super.clone();
@@ -132,13 +153,21 @@ public class ServiceBean implements  Cloneable{
             clonelist.addAll(this.ports);
             clone.setPorts(clonelist);
         }
+
+        // deep clone volume list
+        if(this.volumes !=null) {
+            clonelist = new LinkedList();
+            clonelist.addAll(this.volumes);
+            clone.setVolumes(clonelist);
+        }
+
         return clone;
     }
 
-    /*
-        * Based on the memory limit unit, return the memory limit in byte.
-        * This limit must be larger than 4MB. (Docker constraint)
-        * */
+    /**
+     * Based on the memory limit unit, return the memory limit in byte.
+     * This limit must be larger than 4MB. (Docker constraint)
+     **/
     public Long getMemoryInByte() {
         String unit = memory.substring(memory.length() - 1);
         long memInByte ;
@@ -166,6 +195,10 @@ public class ServiceBean implements  Cloneable{
         return (memInByte < minMem) ? minMem : memInByte;
     }
 
+    /**
+     * Convert Environment variable collection from K/V map into list.
+     * Format of list element is K=V.
+     */
     public List<String> getEnvironmentList() {
         List<String> result = new LinkedList<>();
         StringBuilder sb = new StringBuilder();
@@ -177,5 +210,55 @@ public class ServiceBean implements  Cloneable{
             }
         }
         return result;
+    }
+
+    /**
+     * Build CreateContainerCmd using ServiceBean context
+     * */
+    public CreateContainerResponse createContainer(DockerClient docker){
+        CreateContainerCmd cmd ;
+
+        // setup image
+        if(getImage().isEmpty() || getImage() == null) {
+            return null;
+        }else{
+            cmd = docker.createContainerCmd(getImage());
+        }
+
+        // setup command
+        if(getCommand() !=null && ! getCommand().isEmpty() ){
+            String cmdString = getCommand();
+            cmd.withCmd(Arrays.asList(cmdString.split(" ")));
+        }
+
+        // setup container memory limit
+        if( getMemory() != null)
+            cmd.withMemory( getMemoryInByte());
+
+        // setup container DNS
+        if( getDns() != null)
+            cmd.withDns( getDns());
+
+        // setup container Environment variable
+        if( getEnvironment()!=null)
+            cmd.withEnv(getEnvironmentList());
+
+        // setup container name
+        if(getContainer_name() != null && !getContainer_name().isEmpty())
+            cmd.withName(getContainer_name());
+
+        // setup volumes
+        if(getVolumes() !=null){
+            for(String s: getVolumes()){
+                String[] bind_vol = s.split(":");
+                VolumeBind vb = new VolumeBind(bind_vol[0],bind_vol[1]);
+                cmd.withBinds(new Bind(vb.getHostPath(), new Volume(vb.getContainerPath())));
+            }
+        }
+
+        // TODO: setup other docker container properties from ServiceBean
+
+        // Execute created command and return response
+        return cmd.exec();
     }
 }

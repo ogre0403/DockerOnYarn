@@ -1,9 +1,7 @@
 package dorne.launcher;
 
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
@@ -11,8 +9,13 @@ import dorne.DorneConst;
 import dorne.bean.ServiceBean;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.*;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 
+import java.io.IOException;
 import java.util.*;
 
 
@@ -51,7 +54,7 @@ public class APILauncher extends ContainerLauncher {
     @Override
     public void process(ContainerLaunchContext ctx) {
         // Start docker container using docker-java API
-        CreateContainerResponse dockerContainer = setupDockerClient(this.service);
+        CreateContainerResponse dockerContainer = this.service.createContainer(this.docker);
         this.dockerContainerID = dockerContainer.getId();
         docker.startContainerCmd(this.dockerContainerID).exec();
 
@@ -71,48 +74,6 @@ public class APILauncher extends ContainerLauncher {
         dockerAppMaster.getNMClientAsync().startContainerAsync(container, ctx);
     }
 
-    /*
-    * Setup CreateContainerCmd using ServiceBean context
-    * */
-    private CreateContainerResponse setupDockerClient(ServiceBean service){
-
-        CreateContainerCmd cmd ;
-
-        // setup image
-        if(service.getImage().isEmpty() || service.getImage() == null) {
-            return null;
-        }else{
-            cmd = docker.createContainerCmd(this.service.getImage());
-        }
-
-        // setup command
-        if(service.getCommand() !=null && !service.getCommand().isEmpty() ){
-            String cmdString = service.getCommand();
-            cmd.withCmd(Arrays.asList(cmdString.split(" ")));
-        }
-
-        // setup container memory limit
-        if(service.getMemory() != null)
-            cmd.withMemory(service.getMemoryInByte());
-
-        // setup container DNS
-        if(service.getDns() != null)
-            cmd.withDns(service.getDns());
-
-        // setup container Environment variable
-        if(service.getEnvironment()!=null)
-            cmd.withEnv(service.getEnvironmentList());
-
-        // setup container name
-        if(service.getContainer_name() != null && !service.getContainer_name().isEmpty())
-            cmd.withName(service.getContainer_name());
-
-        // TODO: setup other docker container properties from ServiceBean
-
-        // Execute created command and return response
-        return cmd.exec();
-    }
-
     /**
      * create docker attach CLI command
      * */
@@ -126,5 +87,21 @@ public class APILauncher extends ContainerLauncher {
             command.append(str).append(" ");
         }
         return command.toString();
+    }
+
+    private LocalResource cretaeLocalResource() throws IOException {
+        FileSystem fs = FileSystem.get(null);
+        //TODO: fixed file path
+        String suffix = "docker";
+        Path dst = new Path(fs.getHomeDirectory(), suffix);
+        FileStatus scFileStatus = fs.getFileStatus(dst);
+        LocalResource scRsrc =
+                LocalResource.newInstance(
+                        ConverterUtils.getYarnUrlFromURI(dst.toUri()),
+                        LocalResourceType.FILE,
+                        LocalResourceVisibility.APPLICATION,
+                        scFileStatus.getLen(),
+                        scFileStatus.getModificationTime());
+        return scRsrc;
     }
 }

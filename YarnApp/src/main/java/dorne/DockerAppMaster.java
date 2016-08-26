@@ -1,6 +1,5 @@
 package dorne;
 
-import dorne.bean.ConfigBean;
 import dorne.bean.ServiceBean;
 import dorne.thrift.ThriftServer;
 import org.apache.commons.cli.CommandLine;
@@ -22,11 +21,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.log4j.LogManager;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.Constructor;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -135,14 +130,14 @@ public class DockerAppMaster {
                     "No application id specified");
         }
         this.Appid = cliParser.getOptionValue(DorneConst.DOREN_OPTS_DOCKER_APPID);
-        composeConfig = parseComposeYAML(DorneConst.DOREN_LOCALRESOURCE_YAML);
+        composeConfig = Util.parseComposeYAML(DorneConst.DOREN_LOCALRESOURCE_YAML);
 
         Util.prefixAppIdToServiceName(composeConfig, this.Appid);
 
         for(ServiceBean sb: composeConfig.values()){
             Util.ReplaceServiceNameVariable(sb,composeConfig);
         }
-
+        Util.removeClientModeService(composeConfig);
         sortedServiceName = Util.sortServices(composeConfig);
 
         envs = System.getenv();
@@ -202,25 +197,6 @@ public class DockerAppMaster {
         }
 
         numRequestedContainers.set(numTotalContainersToRequest);
-    }
-
-    private  ConcurrentHashMap<String, ServiceBean> parseComposeYAML(String file) throws IOException {
-        FileInputStream fis = null;
-        ConfigBean parsed;
-        try {
-            fis = new FileInputStream(new File(file));
-            Yaml beanLoader = new Yaml(new Constructor(){
-                @Override
-                protected Map<Object, Object> createDefaultMap() {
-                    return new ConcurrentHashMap<>();
-                }
-            });
-            parsed = beanLoader.loadAs(fis, ConfigBean.class);
-        }finally {
-            if (fis != null)
-                fis.close();
-        }
-        return (ConcurrentHashMap) parsed.getServices();
     }
 
     private void saintyCheckMemVcoreLimit(RegisterApplicationMasterResponse response){

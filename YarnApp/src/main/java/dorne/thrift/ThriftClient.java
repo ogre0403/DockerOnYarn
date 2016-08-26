@@ -24,6 +24,14 @@ public class ThriftClient {
     private String op;
     private String service;
 
+    public ThriftClient(String ip, String port){
+        try {
+            createConn(ip, Integer.parseInt(port));
+        } catch (TTransportException e) {
+            e.printStackTrace();
+        }
+    }
+
     public ThriftClient(String[] args) throws TTransportException {
         opts = Util.ThriftClientOption();
         init(args);
@@ -59,7 +67,7 @@ public class ThriftClient {
         createConn(server, port);
     }
 
-    private void createConn(String server, int port) throws TTransportException {
+    public void createConn(String server, int port) throws TTransportException {
         transport = new TSocket(server, port);
         transport.open();
         protocol = new TBinaryProtocol(transport);
@@ -116,6 +124,10 @@ public class ThriftClient {
             LOG.info("Stop " + name +"...");
             remove(name);
         }
+    }
+
+    public int getClusterModeContainerNum() throws TException {
+        return client.getContainerNum();
     }
 
     public void close(){

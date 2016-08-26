@@ -1,0 +1,32 @@
+version: '2'
+
+services:
+  mpi_node1:
+    image: ogre/mpich
+    hostname: mpi_node1
+    dns:
+      - 192.168.33.20
+    environment:
+      SERVICE_NAME: mpi_node1
+
+  mpi_node2:
+    image: ogre/mpich
+    hostname: mpi_node2
+    dns:
+      - 192.168.33.20
+    environment:
+      SERVICE_NAME: mpi_node2
+
+  mpi_head:
+    image: ogre/mpich
+    hostname: mpi_head
+    deploy_mode: client
+    command: head /mpich/a.out /src/Makefile
+    volumes:
+      - /home/hadoop/mpich-docker/ogre/src:/src
+    dns:
+      - 192.168.33.20
+    environment:
+      SERVICE_NAME: mpi_head
+      NODE1_SERVICE_NAME: $mpi_node1
+      NODE2_SERVICE_NAME: $mpi_node2

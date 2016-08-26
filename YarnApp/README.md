@@ -26,3 +26,12 @@
  $ hadoop jar dorne-1.0-SNAPSHOT.jar dorne.thrift.ThriftClient --server slave2 --port 44061 --operation shutdown
  ```
  
+ ----------
+ Cluster mode
+ Client mode
+ 
+ --------
+ Volume: should have mountable distributed FS
+ 
+ 
+  docker start -ai 977

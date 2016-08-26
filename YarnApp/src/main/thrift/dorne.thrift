@@ -6,4 +6,5 @@ service DockerService {  // defines the service to add two numbers
            void scaleService(1:string name, 2:int n),
            void removeService(1:string name),
            list<string> showServices(),
+           int getContainerNum(),
 }

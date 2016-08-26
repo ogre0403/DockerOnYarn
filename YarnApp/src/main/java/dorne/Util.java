@@ -1,17 +1,29 @@
 package dorne;
 
+import dorne.bean.ConfigBean;
 import dorne.bean.ServiceBean;
 import io.netty.util.internal.ConcurrentSet;
 import org.apache.commons.cli.Options;
+import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.api.records.LocalResourceType;
+import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
+import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.Constructor;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Created by 1403035 on 2016/5/20.
- */
 public class Util {
     public static Options ClientOptions(){
         Options opts = new Options();
@@ -31,17 +43,6 @@ public class Util {
     public static Options AMOptions(){
         Options opts = new Options();
         opts.addOption(DorneConst.DOREN_OPTS_DOCKER_APPID, true, "Application ID");
-//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_NUM, true,
-//                "No. of containers on which the shell command needs to be executed");
-//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_MEM, true,
-//                "Amount of memory in MB to be requested to run docker container");
-//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_CONTAINER_CORE, true,
-//                "Amount of core to be requested to run docker container");
-//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE, true,
-//                "Prebuild dockerized service type");
-//        opts.addOption(DorneConst.DOREN_OPTS_DOCKER_SERVICE_ARGS, true,
-//                "dockerized service command arguments");
-
         return opts;
     }
 
@@ -82,7 +83,9 @@ public class Util {
 
 
     /**
-     *
+     * Replace docker environment variable name end with "_SERVICE_NAME", and value start with "$".
+     * For example, a variable is ABC_SERVICE_NAME=$xyz, replace $xyz by service's SERVICE_NAME value,
+     * which append ".service.consul"
      */
     public static void ReplaceServiceNameVariable(ServiceBean bean, ConcurrentHashMap<String, ServiceBean> compose){
         Map<String, String> env = bean.getEnvironment();
@@ -98,6 +101,16 @@ public class Util {
                 env.put(k,result+".service.consul");
             }
         }
+    }
+
+    public static void removeClientModeService(ConcurrentHashMap<String, ServiceBean> compose){
+
+        for(Map.Entry<String, ServiceBean> entry : compose.entrySet()){
+            if(entry.getValue().getDeploy_mode().equals("client")){
+                compose.remove(entry.getKey());
+            }
+        }
+
     }
 
     /**
@@ -147,5 +160,59 @@ public class Util {
     private static List<String> getDependence(String name, Map<String, ServiceBean> services){
         List<String> s =  services.get(name).getDepends_on();
         return s != null ? s:new LinkedList<String>();
+    }
+
+    /*
+     * Put file into HDFS, and create localResource Map.
+     * AppMaster will download localresource to localhost
+     * */
+    public static void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath,
+                                     String appName, String appId, Map<String, LocalResource> localResources,
+                                     String resources) throws IOException {
+        String suffix = appName + "/" + appId + "/" + fileDstPath;
+        Path dst = new Path(fs.getHomeDirectory(), suffix);
+
+        if (fileSrcPath == null) {
+            FSDataOutputStream ostream = null;
+            try {
+                ostream = FileSystem
+                        .create(fs, dst, new FsPermission((short) 0710));
+                ostream.writeUTF(resources);
+            } finally {
+                IOUtils.closeQuietly(ostream);
+            }
+        } else {
+            fs.copyFromLocalFile(new Path(fileSrcPath), dst);
+        }
+        FileStatus scFileStatus = fs.getFileStatus(dst);
+        LocalResource scRsrc =
+                LocalResource.newInstance(
+                        ConverterUtils.getYarnUrlFromURI(dst.toUri()),
+                        LocalResourceType.FILE, LocalResourceVisibility.APPLICATION,
+                        scFileStatus.getLen(), scFileStatus.getModificationTime());
+        localResources.put(fileDstPath, scRsrc);
+    }
+
+    /*
+     * Parse yaml configuration.
+     * Note: snakeyaml lib must be found at Client side CLASSPATH
+     * */
+    public static ConcurrentHashMap<String, ServiceBean> parseComposeYAML(String file) throws IOException {
+        FileInputStream fis = null;
+        ConfigBean parsed;
+        try {
+            fis = new FileInputStream(new File(file));
+            Yaml beanLoader = new Yaml(new Constructor(){
+                @Override
+                protected Map<Object, Object> createDefaultMap() {
+                    return new ConcurrentHashMap<>();
+                }
+            });
+            parsed = beanLoader.loadAs(fis, ConfigBean.class);
+        }finally {
+            if (fis != null)
+                fis.close();
+        }
+        return (ConcurrentHashMap) parsed.getServices();
     }
 }

@@ -7,6 +7,7 @@ import com.github.dockerjava.core.DockerClientConfig;
 import dorne.DockerAppMaster;
 import dorne.DorneConst;
 import dorne.Util;
+import dorne.bean.HostInfo;
 import dorne.bean.ServiceBean;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -129,10 +130,15 @@ public class DockerServiceHandler implements DockerService.Iface {
             String name = e.getKey();
             String dockerID = e.getValue();
             String host = dockerHostMap.get(dockerID);
-            String[] ipAndName = getDockerIPAddressAndName(host, dockerID);
-            infoList.add(name+ipAndName[0]+"@"+host+":"+ipAndName[1]);
+            HostInfo ipAndName = getDockerIPAddressAndName(host, dockerID);
+            infoList.add(name+ipAndName.getHostname()+"@"+host+":"+ipAndName.getIp());
         }
         return infoList;
+    }
+
+    @Override
+    public int getContainerNum() throws TException {
+        return dockerAppMaster.getNumAllocatedContainers().get();
     }
 
     /**
@@ -140,7 +146,7 @@ public class DockerServiceHandler implements DockerService.Iface {
      * First element of return array is container.
      * Second element of return array is internal IP.
      */
-    private String[] getDockerIPAddressAndName(String host, String conID)  {
+    private HostInfo getDockerIPAddressAndName(String host, String conID)  {
         DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost("tcp://" + host + ":" + DorneConst.DOREN_DOCKERHOST_PORT)
                 .build();
@@ -152,9 +158,11 @@ public class DockerServiceHandler implements DockerService.Iface {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return new String[]{
-            r.getName(),
-            r.getNetworkSettings().getIpAddress()};
+
+        HostInfo hi = new HostInfo();
+        hi.setHostname(r.getName());
+        hi.setIp(r.getNetworkSettings().getIpAddress());
+        return hi;
     }
 
 

@@ -1,15 +1,14 @@
 package dorne;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
+import dorne.bean.HostInfo;
+import dorne.bean.ServiceBean;
+import dorne.thrift.ThriftClient;
 import org.apache.commons.cli.*;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.*;
@@ -17,19 +16,18 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
+import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Created by 1403035 on 2016/5/12.
- */
 public class Client {
-    private static final Log LOG = LogFactory.getLog(Client.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(Client.class);
 
     // Configuration
     private Configuration conf;
@@ -95,7 +93,7 @@ public class Client {
             }
             result = client.run();
         } catch (Throwable t) {
-            LOG.fatal("Error running CLient", t);
+            LOG.error("Error running CLient", t);
             System.exit(1);
         }
         if (result) {
@@ -179,9 +177,22 @@ public class Client {
         LOG.info("Submitting application to ASM");
         yarnClient.submitApplication(appContext);
 
+
+        ConcurrentHashMap<String, ServiceBean> service = Util.parseComposeYAML(composeYAML);
+        Util.prefixAppIdToServiceName(service, String.valueOf(appId.getId()));
+
+        for(ServiceBean sb: service.values()){
+            Util.ReplaceServiceNameVariable(sb,service);
+        }
+
+        List<ServiceBean> clientMode = clientModeService(service);
+        HostInfo host = getAMInfo(appId);
+        waitForContainerStartup(host.getIp(), host.getPort(), service.size() - clientMode.size());
+        startClientModeService(clientMode);
+
+
         // monitor until app is finish or killed or failed
 //        return monitorApplication(appId);
-        getAMInfo(appId);
         return true;
     }
 
@@ -241,10 +252,10 @@ public class Client {
 
         LOG.info("Copy App Master jar from local filesystem and add to local environment");
         FileSystem fs = FileSystem.get(conf);
-        addToLocalResources(fs, appMasterJar, appMasterJarPath, appId.toString(), localResources, null);
+        Util.addToLocalResources(fs, appMasterJar, appMasterJarPath, appName, appId.toString(), localResources, null);
 
         LOG.info("Copy yaml file from local filesystem and add to local environment");
-        addToLocalResources(fs, composeYAML, composeYAMLPath, appId.toString(), localResources, null);
+        Util.addToLocalResources(fs, composeYAML, composeYAMLPath, appName, appId.toString(), localResources, null);
         return localResources;
     }
 
@@ -350,7 +361,7 @@ public class Client {
         // Set class name
         vargs.add(appMasterMainClass);
         vargs.add("--"+DorneConst.DOREN_OPTS_DOCKER_APPID);
-        vargs.add(appid+"");
+        vargs.add(appid + "");
         vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
         vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
 
@@ -363,44 +374,14 @@ public class Client {
         return command.toString();
     }
 
-    /*
-    * Put file into HDFS, and create localResource Map.
-    * AppMaster will download localresource to localhost
-    * */
-    private void addToLocalResources(FileSystem fs, String fileSrcPath,
-                                     String fileDstPath, String appId, Map<String, LocalResource> localResources,
-                                     String resources) throws IOException {
-        String suffix =
-                appName + "/" + appId + "/" + fileDstPath;
-        Path dst =
-                new Path(fs.getHomeDirectory(), suffix);
-        if (fileSrcPath == null) {
-            FSDataOutputStream ostream = null;
-            try {
-                ostream = FileSystem
-                        .create(fs, dst, new FsPermission((short) 0710));
-                ostream.writeUTF(resources);
-            } finally {
-                IOUtils.closeQuietly(ostream);
-            }
-        } else {
-            fs.copyFromLocalFile(new Path(fileSrcPath), dst);
-        }
-        FileStatus scFileStatus = fs.getFileStatus(dst);
-        LocalResource scRsrc =
-                LocalResource.newInstance(
-                        ConverterUtils.getYarnUrlFromURI(dst.toUri()),
-                        LocalResourceType.FILE, LocalResourceVisibility.APPLICATION,
-                        scFileStatus.getLen(), scFileStatus.getModificationTime());
-        localResources.put(fileDstPath, scRsrc);
-    }
 
-    private void getAMInfo(ApplicationId appId) throws IOException, YarnException {
+    private HostInfo getAMInfo(ApplicationId appId) throws IOException, YarnException {
+        ApplicationReport report;
         while (true) {
-            ApplicationReport report = yarnClient.getApplicationReport(appId);
+            report = yarnClient.getApplicationReport(appId);
             if (!report.getHost().equals("N/A")){
-                LOG.info("AM: " + report.getHost());
-                LOG.info("AM rpc port: " + report.getRpcPort());
+                LOG.info("AM: {} ", report.getHost());
+                LOG.info("AM rpc port: {} ", report.getRpcPort());
                 break;
             }
             try {
@@ -410,6 +391,64 @@ public class Client {
                 LOG.debug("Thread sleep in monitoring loop interrupted");
             }
         }
+        HostInfo hi = new HostInfo();
+        hi.setHostname(report.getHost().split("/")[0]);
+        hi.setIp(report.getHost().split("/")[1]);
+        hi.setPort(String.valueOf(report.getRpcPort()));
+        return hi;
+    }
+
+    /**
+     * Connect to AM, and query how many docker container is up
+     */
+    private void waitForContainerStartup(String ip, String port, int n)  {
+
+        ThriftClient TClient;
+
+        try {
+            TClient = new ThriftClient(ip, port);
+            int s = 0;
+            do{
+                LOG.info("Wait for {}/{} Cluster Mode Container up...",s,n);
+                Thread.sleep(2000);
+            }while( ( s =TClient.getClusterModeContainerNum()) < n);
+
+        } catch (TTransportException e) {
+            e.printStackTrace();
+            return;
+        } catch (TException e) {
+            e.printStackTrace();
+            return;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return;
+        }
+    }
+
+    /*
+     * Return service name of docker container which will be start at client instead of cluster
+     **/
+    private List<ServiceBean> clientModeService(ConcurrentHashMap<String, ServiceBean> service ) throws IOException {
+        LinkedList<ServiceBean> list = new LinkedList<>();
+        for( ServiceBean entry : service.values()) {
+            if (entry.getDeploy_mode().equals("client"))
+                list.add(entry);
+        }
+        return list;
+    }
+
+    private void startClientModeService(List<ServiceBean> services) throws IOException {
+        DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
+                .withDockerHost("tcp://127.0.0.1:" + DorneConst.DOREN_DOCKERHOST_PORT)
+                .build();
+        DockerClient docker = DockerClientBuilder.getInstance(config).build();
+
+        for(ServiceBean s: services){
+            String short_id = s.createContainer(docker).getId().substring(0,8);
+            LOG.info("container id: {}", short_id);
+            LOG.info("Use \"docker start -ai {}\" to run", short_id);
+        }
+        docker.close();
     }
 
     private boolean monitorApplication(ApplicationId appId)
