@@ -36,5 +36,12 @@
             <fileMode>0755</fileMode>
             <directoryMode>0755</directoryMode>
         </fileSet>
+        <fileSet>
+            <directory>src/main/resources</directory>
+            <outputDirectory>example</outputDirectory>
+            <includes>
+                <include>*.yml</include>
+            </includes>
+        </fileSet>
     </fileSets>
 </assembly>
