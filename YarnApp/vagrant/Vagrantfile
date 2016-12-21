@@ -5,21 +5,21 @@ servers = [
   { 
     :hostname => "master",    
     :box => 'ubuntu/trusty64',
-    :ip => '192.168.33.20', 
+    :ip => '192.168.33.70',
     :ram => 2048,
     :cpus => 2
   },
   {
       :hostname => "slave1",
       :box => 'ubuntu/trusty64',
-      :ip => '192.168.33.21',
+      :ip => '192.168.33.71',
       :ram => 2048,
       :cpus => 2
   },
   {
       :hostname => "slave2",
       :box => 'ubuntu/trusty64',
-      :ip => '192.168.33.22',
+      :ip => '192.168.33.72',
       :ram => 2048,
       :cpus => 2
   }
@@ -58,18 +58,18 @@ Vagrant.configure(2) do |config|
     end
 
     servers.each do |machine|
+        vm_name = "%s-%s" % ["docker_on_yarn", machine[:hostname]]
         config.vm.define machine[:hostname] do |node|
             node.vm.box = machine[:box]
             node.vm.host_name = machine[:hostname]
             node.vm.network "private_network", ip: machine[:ip]
             node.vm.provider "virtualbox" do |vb|
-                vb.name = machine[:hostname]
+                vb.name = vm_name
                 vb.customize ["modifyvm", :id, "--memory", machine[:ram]]
                 vb.customize ["modifyvm", :id, "--cpus", machine[:cpus]]
                 # Enable NAT DNS resolve
                 vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
                 # For bridge docker container
-                vb.customize ['modifyvm', :id, '--nictype2', 'Am79C973']
                 vb.customize ['modifyvm', :id, '--nicpromisc2', 'allow-all']
             end
         end
