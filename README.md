@@ -8,6 +8,7 @@ A Docker on YARN Implementation.
 ### 1. Setup Virtual Machines by Vagrant
 
 * Modify VMs IP in Vagrantfile 
+
     ```ruby
     servers = [
         { 
@@ -27,6 +28,7 @@ A Docker on YARN Implementation.
         }   
     ]
     ```
+    
 * Modify ip in hosts
     ```bash
     $ vim vagrant/resources/hadoop/hosts
@@ -46,21 +48,26 @@ A Docker on YARN Implementation.
 
 ### 2. Configure Hadoop Ecosystem 
 * Login master node
+
     ```bash
     $ cd vagrant
     $ vagrant ssh master 
     ```
+    
 * Passwordless SSH loging
+
     ```bash
     master$  ssh-keygen -t rsa
     master$  ssh-copy-id hadoop@master
     master$  ssh-copy-id hadoop@slave1
     master$  ssh-copy-id hadoop@slave2
     ```
+    
 * Format HDFS
     ```bash
     master$ hadoop namenode -format 
     ```
+    
 * Start  HDFS and YARN
     ```bash
     master$ start-dfs.sh
