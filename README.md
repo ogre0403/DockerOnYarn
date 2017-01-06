@@ -76,11 +76,13 @@ A Docker on YARN Implementation.
 
 ### 3. Configure Docker
 * Make hadoop user can use docker in **EVERY** node
+    
     ```bash
     master$ sudo groupadd docker
     master$ sudo gpasswd -a hadoop docker
     master$ sudo service docker restart
     ```
+    
 * Using following information to create a customized docker bridge in **EVERY** node
 
     | hostname   | master  | slave1  | slave2  |
@@ -222,6 +224,7 @@ A Docker on YARN Implementation.
 
 ### 6. Build and deploy from source 
    * Download source code and build. 
+   
     ```bash
     $ git clone https://github.com/ogre0403/Dorne.git
     $ cd Dorne
@@ -230,7 +233,9 @@ A Docker on YARN Implementation.
     $ mvn clean dependency:copy-dependencies package
     $ cp target/dorne-1.0-SNAPSHOT-all.tar.gz ~
     ```
-   * Copy dependency jars into /home/hadoop/dorne_api ($DORNE_HOME/lib) on each host    
+    
+   * Copy dependency jars into /home/hadoop/dorne_api ($DORNE_HOME/lib) on each host  
+     
     ```bash
     $ cd ~
     $ tar zxvf dorne-1.0-SNAPSHOT-all.tar.gz
