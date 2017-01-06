@@ -10,6 +10,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
@@ -191,6 +192,38 @@ public class Util {
                         LocalResourceType.FILE, LocalResourceVisibility.APPLICATION,
                         scFileStatus.getLen(), scFileStatus.getModificationTime());
         localResources.put(fileDstPath, scRsrc);
+    }
+
+    public static void registerLocalResource(FileSystem fs, Path remoteRsrcPath, LocalResource localResource) throws IOException {
+        FileStatus jarStat = fs.getFileStatus(remoteRsrcPath);
+        localResource.setResource(ConverterUtils.getYarnUrlFromURI(remoteRsrcPath.toUri()));
+        localResource.setSize(jarStat.getLen());
+        localResource.setTimestamp(jarStat.getModificationTime());
+        localResource.setType(LocalResourceType.FILE);
+        localResource.setVisibility(LocalResourceVisibility.APPLICATION);
+    }
+
+    /**
+     * Set the environment variable for execute application master.
+     * Most important variable is CLASSPATH.
+     * CLASSPATH has to contain:
+     *    - Hadoop configuration folder : append HADOOP_HOME
+     *    - dorne required JAR : append
+     *    - AppMaster jar : append "./*"
+     * */
+    public static  Map<String, String> buildEnv(Map<String, String> env) throws IOException {
+        //TODO: read CLASSPATH from system env
+        StringBuilder classPathEnv = new StringBuilder();
+        classPathEnv.append(ApplicationConstants.Environment.CLASSPATH.$$())
+                .append(ApplicationConstants.CLASS_PATH_SEPARATOR)
+                .append("./*")
+                .append(ApplicationConstants.CLASS_PATH_SEPARATOR)
+                .append("/opt/hadoop/etc/hadoop")
+                .append(ApplicationConstants.CLASS_PATH_SEPARATOR)
+                .append("/home/hadoop/dorne_api/*");
+
+        env.put("CLASSPATH", classPathEnv.toString());
+        return env;
     }
 
     /*

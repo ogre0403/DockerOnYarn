@@ -2,6 +2,7 @@ package dorne;
 
 import dorne.launcher.APILauncher;
 import dorne.launcher.ContainerLauncher;
+import dorne.launcher.SlaveRunnerLauncher;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.*;
@@ -102,14 +103,15 @@ public class RMCallbackHandler  implements AMRMClientAsync.CallbackHandler {
 
                 // launch and start the container on a separate thread to keep the main thread unblocked
                 ContainerLauncher runnableLaunchContainer =
-                        new APILauncher(allocatedContainer, serviceName, dockerAppMaster);
+//                        new APILauncher(allocatedContainer, serviceName, dockerAppMaster);
+                        new SlaveRunnerLauncher(allocatedContainer, serviceName, dockerAppMaster);
                 Thread launchThread = new Thread(runnableLaunchContainer);
                 dockerAppMaster.launchThreads.add(launchThread);
                 launchThread.start();
 
                 try {
                     // Start services in dependency order, and sleep for a while before start next.
-                    // Latter service will not wait for former be ¡§ready¡¨ before starting
+                    // Latter service will not wait for former be ready before starting
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();

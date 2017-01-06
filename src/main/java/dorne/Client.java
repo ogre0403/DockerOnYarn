@@ -161,7 +161,7 @@ public class Client {
 
         // set environment veriable for AM
         Map<String, String> env = new HashMap<String, String>();
-        buildAMEnv(env);
+        Util.buildEnv(env);
 //        buildAMEnvForShell(env, appId);
         amContainer.setEnvironment(env);
 
@@ -310,6 +310,7 @@ public class Client {
     }
     */
 
+
     /**
      * Set the environment variable for execute application master.
      * Most important variable is CLASSPATH.
@@ -318,6 +319,7 @@ public class Client {
      *    - dorne required JAR : append
      *    - AppMaster jar : append "./*"
      * */
+    /*
     private void buildAMEnv(Map<String, String> env) throws IOException {
         LOG.info("Set the environment for the application master");
         StringBuilder classPathEnv = new StringBuilder();
@@ -335,15 +337,15 @@ public class Client {
 //        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/dorne_api/*");
 //        classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("/home/hadoop/yarn_api/*");
 
-        /*
-        for (String c : conf.getStrings(
-                YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-                YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
-            classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR);
-            classPathEnv.append(c.trim());
-        }
-        */
-    }
+
+//        for (String c : conf.getStrings(
+//                YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+//                YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
+//            classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR);
+//            classPathEnv.append(c.trim());
+//        }
+    }*/
+
 
     /*
     * Build AM launch command

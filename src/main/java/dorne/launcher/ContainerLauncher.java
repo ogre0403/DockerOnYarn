@@ -1,21 +1,13 @@
 package dorne.launcher;
 
 import dorne.DockerAppMaster;
-import dorne.DorneConst;
 import dorne.NMCallbackHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.*;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
 
 /**
  * Created by 1403035 on 2016/6/29.
@@ -41,11 +33,15 @@ public abstract class ContainerLauncher implements Runnable{
     @Override
     public void run() {
         LOG.info("Setting up container launch container for containerid=" + container.getId());
-        ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
-        process(ctx);
+        process(getContainerCtx());
     }
 
     // Type 1: shell cmd : CLILauncher
     // Type 2" execute docker-java api in AM : APILauncher
     public abstract void process(ContainerLaunchContext ctx);
+
+    public ContainerLaunchContext getContainerCtx() {
+        ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
+        return ctx;
+    }
 }
